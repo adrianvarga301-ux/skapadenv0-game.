@@ -1,14 +1,262 @@
+
 <!doctype html>
-<html lang="ro"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#24105a"><title>SKAPADEN</title>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#24105a">
+<title>SKAPADEN</title>
+
 <style>
-*{box-sizing:border-box}body{margin:0;background:#160d3c;color:white;font-family:system-ui,Arial;display:flex;justify-content:center;min-height:100vh}
-#app{width:min(100%,600px);padding:10px;display:flex;flex-direction:column;gap:9px}.hud{display:flex;justify-content:space-between;background:#28135d;border-radius:12px;padding:10px;font-weight:900}.screen{border:3px solid #251052;border-radius:15px;overflow:hidden;background:#22205f}canvas{display:block;width:100%;height:auto;touch-action:manipulation}
-.controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}button{border:2px solid #12072f;border-radius:12px;padding:12px 17px;background:#42e91b;color:#071b05;font-weight:1000;font-size:17px;box-shadow:0 4px #16820a}button:active{transform:translateY(3px);box-shadow:0 1px #16820a}.purple{background:#5724a9;color:white;box-shadow:0 3px #220c56}.hint{text-align:center;font-size:12px;color:#d9caff}#message{text-align:center;font-weight:900}.shop-modal{position:fixed;inset:0;background:#08051bdc;z-index:5;display:flex;align-items:center;justify-content:center;padding:14px}.shop-modal[hidden]{display:none}.shop-panel{width:min(100%,560px);max-height:90vh;overflow:auto;background:#24145b;border:2px solid #8c64e8;border-radius:18px;padding:16px;box-shadow:0 15px 55px #0009}.shop-head{display:flex;align-items:center;justify-content:space-between}.shop-head h2{margin:4px 0 12px}.skin-list{display:grid;grid-template-columns:1fr 1fr;gap:8px}.skin-card{background:#382578;border-radius:12px;padding:9px;display:flex;align-items:center;gap:7px;min-width:0}.swatch{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--skin);color:var(--wing);font-size:26px;text-shadow:0 0 8px var(--wing);flex-shrink:0}.skin-info{display:flex;flex-direction:column;min-width:0;flex:1}.skin-info small{color:#e3d6ff}.skin-action{font-size:10px;padding:8px 6px;white-space:nowrap}.skin-action.selected{background:#8272a9;color:white;box-shadow:none}.daily-box{background:#382578;border-radius:12px;padding:10px;margin:10px 0}.daily-box p{margin:5px 0;font-size:13px}.daily-box button{font-size:12px;padding:9px}.notice{font-size:12px;color:#ffe49a;min-height:17px}
-</style></head><body><main id="app">
-<div class="hud"><span>🪙 <b id="coins">0</b></span><span>💎 <b id="gems">0</b></span><span>🏆 <b id="score">0</b></span><button id="sound" class="purple">🔊 ON</button></div>
-<div class="screen"><canvas id="game" width="600" height="760"></canvas></div>
-<div class="controls"><button id="start">▶ START</button><button id="pause" class="purple">Ⅱ PAUZĂ</button><button id="retry" class="purple">↻ REIA</button><button id="shop" class="purple">🛍 MAGAZIN</button></div>
-<div class="hint">Atinge ecranul sau apasă SPACE / ↑ ca pasărea să zboare. Adună monede și diamante, evită obstacolele!</div><div id="message">🐦 SKAPADEN – EȘTI GATA DE ZBOR?</div>
+*{box-sizing:border-box}
+body{
+margin:0;
+background:#160d3c;
+color:white;
+font-family:system-ui,Arial;
+display:flex;
+justify-content:center;
+min-height:100vh
+}
+#app{
+width:min(100%,600px);
+padding:10px;
+display:flex;
+flex-direction:column;
+gap:9px
+}
+.hud{
+display:flex;
+justify-content:space-between;
+align-items:center;
+background:#28135d;
+border-radius:12px;
+padding:10px;
+font-weight:900;
+gap:5px
+}
+.screen{
+border:3px solid #251052;
+border-radius:15px;
+overflow:hidden;
+background:#22205f
+}
+canvas{
+display:block;
+width:100%;
+height:auto;
+touch-action:manipulation
+}
+.controls{
+display:flex;
+gap:8px;
+justify-content:center;
+flex-wrap:wrap
+}
+button{
+border:2px solid #12072f;
+border-radius:12px;
+padding:12px 17px;
+background:#42e91b;
+color:#071b05;
+font-weight:1000;
+font-size:17px;
+box-shadow:0 4px #16820a;
+cursor:pointer
+}
+button:active{
+transform:translateY(3px);
+box-shadow:0 1px #16820a
+}
+button:disabled{
+opacity:.65;
+cursor:default
+}
+.purple{
+background:#5724a9;
+color:white;
+box-shadow:0 3px #220c56
+}
+.hint{
+text-align:center;
+font-size:12px;
+color:#d9caff
+}
+#message{
+text-align:center;
+font-weight:900
+}
+.shop-modal{
+position:fixed;
+inset:0;
+background:#08051bdc;
+z-index:5;
+display:flex;
+align-items:center;
+justify-content:center;
+padding:14px
+}
+.shop-modal[hidden]{
+display:none
+}
+.shop-panel{
+width:min(100%,560px);
+max-height:90vh;
+overflow:auto;
+background:#24145b;
+border:2px solid #8c64e8;
+border-radius:18px;
+padding:16px;
+box-shadow:0 15px 55px #0009
+}
+.shop-head{
+display:flex;
+align-items:center;
+justify-content:space-between
+}
+.shop-head h2{
+margin:4px 0 12px
+}
+.skin-list{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:8px
+}
+.skin-card{
+background:#382578;
+border-radius:12px;
+padding:9px;
+display:flex;
+align-items:center;
+gap:7px;
+min-width:0
+}
+.swatch{
+width:36px;
+height:36px;
+border-radius:50%;
+display:grid;
+place-items:center;
+background:var(--skin);
+color:var(--wing);
+font-size:26px;
+text-shadow:0 0 8px var(--wing);
+flex-shrink:0
+}
+.skin-info{
+display:flex;
+flex-direction:column;
+min-width:0;
+flex:1
+}
+.skin-info small{
+color:#e3d6ff
+}
+.skin-action{
+font-size:10px;
+padding:8px 6px;
+white-space:nowrap
+}
+.skin-action.selected{
+background:#8272a9;
+color:white;
+box-shadow:none
+}
+.daily-box{
+background:#382578;
+border-radius:12px;
+padding:10px;
+margin:10px 0
+}
+.daily-box p{
+margin:5px 0;
+font-size:13px
+}
+.daily-box button{
+font-size:12px;
+padding:9px
+}
+.notice{
+font-size:12px;
+color:#ffe49a;
+min-height:17px
+}
+@media(max-width:390px){
+.hud{font-size:12px;padding:8px}
+.controls button{font-size:14px;padding:10px 12px}
+.skin-list{grid-template-columns:1fr}
+}
+</style>
+</head>
+
+<body>
+<main id="app">
+
+<div class="hud">
+<span>🪙 <b id="coins">0</b></span>
+<span>💎 <b id="gems">0</b></span>
+<span>🏆 <b id="score">0</b></span>
+<button id="sound" class="purple">🔊 ON</button>
+</div>
+
+<div class="screen">
+<canvas id="game" width="600" height="760"></canvas>
+</div>
+
+<div class="controls">
+<button id="start">▶ START</button>
+<button id="pause" class="purple">Ⅱ PAUZĂ</button>
+<button id="retry" class="purple">↻ REIA</button>
+<button id="shop" class="purple">🛍 MAGAZIN</button>
+</div>
+
+<div class="hint">
+Atinge ecranul sau apasă SPACE / ↑ ca pasărea să zboare.
+Adună monede și diamante, evită obstacolele!
+</div>
+
+<div id="message">
+🐦 SKAPADEN – EȘTI GATA DE ZBOR?
+</div>
+
 </main>
-<div id="shopModal" class="shop-modal" hidden><section class="shop-panel"><div class="shop-head"><h2>🛍 MAGAZIN SKAPADEN</h2><button id="closeShop" class="purple">✕</button></div><div class="daily-box"><b>🎁 Recompensa zilnică</b><p>Conectează-te în fiecare zi și primești 100 de monede.</p><button id="dailyButton">REVENDICĂ 100 🪙</button><div id="dailyNotice" class="notice"></div></div><div class="daily-box"><b>🏆 Misiunea zilei</b><p>Colectează 20 de monede: <b id="missionProgress">0/20</b>. Recompensă: 150 🪙.</p><button id="missionButton">REVENDICĂ RECOMPENSA</button><div id="missionNotice" class="notice">Joacă și colectează monede pentru a progresa.</div></div><h3>Skins – schimbă aspectul păsării</h3><div id="skinList" class="skin-list"></div><div id="shopNotice" class="notice"></div></section></div>
-<script src="game.js"></script></body></html>
+
+<div id="shopModal" class="shop-modal" hidden>
+<section class="shop-panel">
+
+<div class="shop-head">
+<h2>🛍 MAGAZIN SKAPADEN</h2>
+<button id="closeShop" class="purple">✕</button>
+</div>
+
+<div class="daily-box">
+<b>🎁 Recompensa zilnică</b>
+<p>Conectează-te în fiecare zi și primești 100 de monede.</p>
+<button id="dailyButton">REVENDICĂ 100 🪙</button>
+<div id="dailyNotice" class="notice"></div>
+</div>
+
+<div class="daily-box">
+<b>🏆 Misiunea zilei</b>
+<p>
+Colectează 20 de monede:
+<b id="missionProgress">0/20</b>.
+Recompensă: 150 🪙.
+</p>
+<button id="missionButton">REVENDICĂ RECOMPENSA</button>
+<div id="missionNotice" class="notice">
+Joacă și colectează monede pentru a progresa.
+</div>
+</div>
+
+<h3>Skins – schimbă aspectul păsării</h3>
+
+<div id="skinList" class="skin-list"></div>
+<div id="shopNotice" class="notice"></div>
+
+</section>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
