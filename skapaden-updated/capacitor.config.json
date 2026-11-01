@@ -1,0 +1,6 @@
+{
+  "appId": "com.skapaden.game",
+  "appName": "SKAPADEN",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}
