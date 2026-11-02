@@ -1,0 +1,60 @@
+/* SKAPADEN shop card alignment */
+#skinList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+#skinList > * {
+  box-sizing: border-box;
+  min-width: 0;
+}
+#skinList .skin-card {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 8px 10px;
+  padding: 10px;
+  min-width: 0;
+}
+#skinList .skin-preview {
+  grid-column: 1;
+  grid-row: 1;
+  width: 76px;
+  height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 12px;
+}
+#skinList .skin-info {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+#skinList .skin-info b,
+#skinList .skin-info strong {
+  overflow-wrap: anywhere;
+}
+#skinList .skin-action,
+#skinList button {
+  grid-column: 1 / -1;
+  width: 100%;
+  box-sizing: border-box;
+  white-space: normal;
+}
+#skinList canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+@media (max-width: 360px) {
+  #skinList { gap: 8px; }
+  #skinList .skin-card { grid-template-columns: 58px minmax(0, 1fr); padding: 8px; gap: 7px; }
+  #skinList .skin-preview { width: 58px; height: 60px; }
+}
