@@ -12,6 +12,15 @@
 
   for (let i = 1; i <= 6; i++) {
     const img = new Image();
+
+    img.onload = () => {
+      console.log(`SKAPADEN: bird_fly_${i}.png incarcat!`);
+    };
+
+    img.onerror = () => {
+      console.error(`SKAPADEN: EROARE la bird_fly_${i}.png`);
+    };
+
     img.src = `assets/bird_fly_${i}.png`;
     birdFrames.push(img);
   }
@@ -35,7 +44,7 @@
     const frameIndex = Math.floor(worldTime / 7) % 6;
     const img = birdFrames[frameIndex];
 
-    // Dimensiune fixa, cu proportiile PNG pastrate
+    // Pastram proportiile originale
     const maxWidth = 100;
     const maxHeight = 76;
 
@@ -69,5 +78,12 @@
   };
 
   console.log("SKAPADEN: animatia PNG a pasarii este pregatita!");
+
+  console.log("PNG STATUS:", birdFrames.map((img, index) => ({
+    imagine: `bird_fly_${index + 1}.png`,
+    incarcata: img.complete,
+    latime: img.naturalWidth,
+    inaltime: img.naturalHeight
+  })));
 
 })();
