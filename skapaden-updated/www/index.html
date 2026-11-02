@@ -1,80 +1,122 @@
-<!doctype html>
+
+<!DOCTYPE html>
 <html lang="ro">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>SKAPADEN</title>
-<style>
-*{box-sizing:border-box}
-body{margin:0;background:#10072e;color:white;font-family:system-ui,Arial;display:flex;justify-content:center}
-#app{width:min(100%,720px);padding:12px;min-height:100vh;background:linear-gradient(160deg,#170b45,#090622)}
-header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px;border:2px solid #5424b8;border-radius:18px;background:#24105c}
-.stat{font-weight:900;font-size:clamp(14px,3.6vw,20px);white-space:nowrap}
-.stat span{color:#ffe36a}
-button{border:2px solid #160b3b;border-radius:17px;background:#5521ad;color:white;font-weight:1000;font-size:clamp(14px,3.7vw,20px);padding:14px 7px;box-shadow:0 5px 0 #10052d;cursor:pointer}
-button.green{background:#32e51e;color:#09230a}
-#sound{background:#5d20bc;color:white;border:2px solid #a778ff;border-radius:14px;padding:10px}
-#game{display:block;width:100%;height:auto;aspect-ratio:600/760;margin:14px auto 10px;border:4px solid #5423ad;border-radius:24px;touch-action:manipulation}
-.controls{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-#message{text-align:center;color:#e7d9ff;min-height:38px;margin:14px 0;font-weight:700}
-#shopModal{position:fixed;inset:0;background:#08031def;z-index:5;display:none;overflow:auto;padding:18px}
-#shopModal.open{display:block}
-.shopbox{max-width:680px;margin:10px auto;background:#1d0b52;border:3px solid #873cff;border-radius:22px;padding:14px}
-.shophead{display:flex;justify-content:space-between;align-items:center;font-size:22px;font-weight:1000;margin-bottom:12px}
-#skinList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.skin-card{background:linear-gradient(145deg,#321078,#10072e);border:2px solid #7942df;border-radius:15px;padding:9px;display:grid;grid-template-columns:70px 1fr;gap:7px;align-items:center}
-.skin-preview{width:68px;height:68px;border-radius:13px;background:radial-gradient(circle at 35% 25%,var(--light),var(--body) 55%,var(--dark));border:2px solid var(--wing)}
-.skin-preview canvas{width:66px;height:66px}
-.skin-info b{display:block;font-size:14px}
-.skin-info small{color:#ffe36a;font-weight:900}
-.skin-action{grid-column:1/-1;padding:9px;font-size:13px}
-.skin-action.selected{background:#31df26;color:#09230a}
-#shopNotice,#dailyNotice,#missionNotice{text-align:center;color:#ffe48b;font-weight:800}
-.extras{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
-@media(max-width:390px){#skinList{grid-template-columns:1fr}}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+  <meta name="theme-color" content="#10072e">
+  <meta name="description" content="SKAPADEN - Superhero Bird. Zboară, colectează monede și deblochează costume!">
+
+  <title>SKAPADEN - Superhero Bird</title>
+
+  <!-- FONTURI -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- CSS PRINCIPAL -->
+  <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
+
 <main id="app">
-<header>
-<div class="stat">🪙 <span id="coins">0</span></div>
-<div class="stat">💎 <span id="gems">0</span></div>
-<div class="stat">🏆 <span id="best">0</span></div>
-<button id="sound">🔊 ON</button>
-</header>
 
-<canvas id="game" width="600" height="760"></canvas>
+  <!-- BARA DE SUS -->
+  <header>
 
-<div class="controls">
-<button class="green" id="start">▶ START</button>
-<button id="pause">Ⅱ PAUZĂ</button>
-<button id="retry">↻ REVINO</button>
-<button id="shop" style="grid-column:1/-1">🎁 MAGAZIN COSTUME</button>
-</div>
+    <div class="stat">
+      🪙 <span id="coins">0</span>
+    </div>
 
-<div class="extras">
-<button id="dailyButton">🎁 RECOMPENSĂ +100</button>
-<button id="missionButton">🏆 MISIUNE 20 MONEDE</button>
-</div>
+    <div class="stat">
+      💎 <span id="gems">0</span>
+    </div>
 
-<p id="dailyNotice"></p>
-<p id="missionNotice">Colectează 20 de monede pentru 150 bonus!</p>
-<div id="message">Atinge START, apoi atinge ecranul ca pasărea să zboare!</div>
+    <div class="stat">
+      🏆 <span id="best">0</span>
+    </div>
+
+    <button id="sound">🔊 ON</button>
+
+  </header>
+
+  <!-- JOC -->
+  <canvas id="game" width="600" height="760"></canvas>
+
+  <!-- BUTOANE PRINCIPALE -->
+  <div class="controls">
+
+    <button class="green" id="start">
+      ▶ START
+    </button>
+
+    <button id="pause">
+      Ⅱ PAUZĂ
+    </button>
+
+    <button id="retry">
+      ↻ REVINO
+    </button>
+
+    <button id="shop" style="grid-column:1/-1">
+      🎁 MAGAZIN COSTUME
+    </button>
+
+  </div>
+
+  <!-- RECOMPENSE ȘI MISIUNI -->
+  <div class="extras">
+
+    <button id="dailyButton">
+      🎁 RECOMPENSĂ +100
+    </button>
+
+    <button id="missionButton">
+      🏆 MISIUNE 20 MONEDE
+    </button>
+
+  </div>
+
+  <p id="dailyNotice"></p>
+
+  <p id="missionNotice">
+    Colectează 20 de monede pentru 150 bonus!
+  </p>
+
+  <div id="message">
+    Atinge START, apoi atinge ecranul ca pasărea să zboare!
+  </div>
+
 </main>
 
+<!-- MAGAZIN COSTUME -->
 <section id="shopModal">
-<div class="shopbox">
-<div class="shophead">
-<span>🎁 MAGAZIN COSTUME</span>
-<button id="closeShop">✕</button>
-</div>
-<p id="shopNotice"></p>
-<div id="skinList"></div>
-</div>
+
+  <div class="shopbox">
+
+    <div class="shophead">
+
+      <span>🎁 MAGAZIN COSTUME</span>
+
+      <button id="closeShop">✕</button>
+
+    </div>
+
+    <p id="shopNotice"></p>
+
+    <div id="skinList"></div>
+
+  </div>
+
 </section>
 
-<!-- Adăugat: Biblioteca Three.js pentru grafica 3D -->
+<!-- BIBLIOTECA THREE.JS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<!-- CODUL JOCULUI -->
 <script src="game.js"></script>
+
 </body>
 </html>
