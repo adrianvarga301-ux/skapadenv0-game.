@@ -1,13 +1,14 @@
-
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@500;600;700;800&display=swap');
 
 :root {
   --bg: #08051d;
-  --panel: rgba(20, 13, 53, .94);
+  --panel: rgba(20, 13, 53, .96);
   --purple: #9d4dff;
   --cyan: #00eaff;
   --pink: #ff35c8;
   --green: #39ff9c;
+  --red: #ff304f;
+  --gold: #ffd45a;
   --white: #f7f3ff;
 }
 
@@ -19,6 +20,7 @@
 html {
   min-height: 100%;
   background: var(--bg);
+  scroll-behavior: smooth;
 }
 
 body {
@@ -27,8 +29,9 @@ body {
   color: var(--white);
   font-family: 'Rajdhani', sans-serif;
   background:
-    radial-gradient(ellipse at 50% 0%, #34206c 0%, transparent 48%),
+    radial-gradient(ellipse at 50% 0%, #482276 0%, transparent 48%),
     radial-gradient(ellipse at 0% 70%, #17104c 0%, transparent 45%),
+    radial-gradient(ellipse at 100% 85%, #4a1029 0%, transparent 40%),
     linear-gradient(160deg, #08051d, #100725 55%, #050315);
   overflow-x: hidden;
 }
@@ -59,6 +62,8 @@ body::before {
   gap: 13px;
 }
 
+/* HEADER */
+
 header {
   width: 100%;
   display: grid;
@@ -76,15 +81,29 @@ header {
   align-items: center;
   gap: 5px;
   padding: 7px 5px;
-  border: 1px solid rgba(0, 234, 255, .4);
+  border: 1px solid rgba(0, 234, 255, .5);
   border-radius: 12px;
   color: white;
-  background: linear-gradient(145deg, #211448, #100b2b);
-  box-shadow: 0 0 13px rgba(0, 234, 255, .12),
-              inset 0 0 12px rgba(157, 77, 255, .1);
+  background: linear-gradient(145deg, #29194d, #100b2b);
+  box-shadow:
+    0 0 13px rgba(0, 234, 255, .16),
+    inset 0 0 12px rgba(157, 77, 255, .15);
   font-family: 'Orbitron', sans-serif;
   font-size: clamp(11px, 3vw, 15px);
   font-weight: 800;
+}
+
+.stat:first-child {
+  border-color: var(--gold);
+  box-shadow: 0 0 13px rgba(255, 212, 90, .2);
+}
+
+.stat:nth-child(2) {
+  border-color: var(--cyan);
+}
+
+.stat:nth-child(3) {
+  border-color: var(--purple);
 }
 
 #sound {
@@ -92,20 +111,25 @@ header {
   color: var(--cyan);
 }
 
+/* GAME SCREEN */
+
 #game {
   display: block;
   width: 100%;
   height: auto;
   aspect-ratio: 600 / 760;
-  border: 2px solid rgba(0, 234, 255, .85);
+  border: 2px solid rgba(0, 234, 255, .9);
   border-radius: 19px;
   background: #100a31;
   box-shadow:
     0 0 12px rgba(0, 234, 255, .55),
-    0 0 35px rgba(157, 77, 255, .3),
+    0 0 35px rgba(157, 77, 255, .35),
+    0 0 65px rgba(255, 48, 79, .12),
     inset 0 0 20px rgba(0, 234, 255, .1);
   touch-action: manipulation;
 }
+
+/* BUTTONS */
 
 .controls,
 .extras {
@@ -121,14 +145,18 @@ button {
   border: 1px solid rgba(0, 234, 255, .6);
   border-radius: 12px;
   color: white;
-  background: linear-gradient(145deg, #282052, #110b30);
-  box-shadow: 0 4px 0 #08051b,
-              0 0 12px rgba(0, 234, 255, .12);
+  background: linear-gradient(145deg, #302052, #110b30);
+  box-shadow:
+    0 4px 0 #08051b,
+    0 0 12px rgba(0, 234, 255, .15);
   font-family: 'Orbitron', sans-serif;
   font-size: clamp(10px, 2.8vw, 13px);
   font-weight: 800;
   cursor: pointer;
-  transition: transform .15s, filter .15s, box-shadow .15s;
+  transition:
+    transform .15s,
+    filter .15s,
+    box-shadow .15s;
 }
 
 button:active {
@@ -141,26 +169,37 @@ button.green,
 #start {
   border-color: var(--green);
   color: #061b16;
-  background: linear-gradient(135deg, #7affbb, #19d987);
-  box-shadow: 0 0 17px rgba(57, 255, 156, .3);
+  background: linear-gradient(135deg, #9affc9, #19d987);
+  box-shadow:
+    0 0 17px rgba(57, 255, 156, .35),
+    inset 0 0 10px rgba(255,255,255,.25);
+}
+
+#start {
+  animation: startGlow 2s infinite alternate;
 }
 
 #shop {
   border-color: var(--pink);
   color: #fff;
-  background: linear-gradient(135deg, #8b2bd3, #401477);
-  box-shadow: 0 0 16px rgba(255, 53, 200, .25);
+  background: linear-gradient(135deg, #a333e9, #401477);
+  box-shadow: 0 0 18px rgba(255, 53, 200, .3);
 }
 
 #dailyButton {
-  border-color: #ffcf50;
+  border-color: var(--gold);
   color: #fff2b8;
+  background: linear-gradient(145deg, #684515, #28152d);
+  box-shadow: 0 0 14px rgba(255, 212, 90, .18);
 }
 
 #missionButton {
   border-color: var(--cyan);
   color: #a8faff;
+  background: linear-gradient(145deg, #183f65, #100b30);
 }
+
+/* NOTIFICATIONS */
 
 #dailyNotice,
 #missionNotice,
@@ -170,10 +209,19 @@ button.green,
   padding: 11px;
   text-align: center;
   border-radius: 12px;
-  background: rgba(26, 17, 66, .85);
-  border: 1px solid rgba(157, 77, 255, .35);
+  background: rgba(26, 17, 66, .9);
+  border: 1px solid rgba(157, 77, 255, .4);
   font-size: 16px;
   font-weight: 700;
+  box-shadow: 0 0 12px rgba(157, 77, 255, .12);
+}
+
+#dailyNotice {
+  border-color: rgba(255, 212, 90, .5);
+}
+
+#missionNotice {
+  border-color: rgba(0, 234, 255, .4);
 }
 
 #message {
@@ -181,10 +229,10 @@ button.green,
   font-family: 'Orbitron', sans-serif;
   font-size: 12px;
   line-height: 1.6;
-  box-shadow: 0 0 15px rgba(0, 234, 255, .1);
+  box-shadow: 0 0 15px rgba(0, 234, 255, .15);
 }
 
-/* MAGAZIN COSTUME */
+/* SHOP */
 
 #shopModal {
   position: fixed;
@@ -194,7 +242,7 @@ button.green,
   align-items: center;
   justify-content: center;
   padding: 15px;
-  background: rgba(3, 2, 15, .86);
+  background: rgba(3, 2, 15, .88);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -213,9 +261,11 @@ button.green,
   border: 2px solid var(--purple);
   border-radius: 20px;
   background:
-    radial-gradient(ellipse at top, #352064, transparent 70%),
-    #100a29;
-  box-shadow: 0 0 25px rgba(157, 77, 255, .45);
+    radial-gradient(ellipse at top, #482777, transparent 70%),
+    linear-gradient(145deg, #160d35, #100a29);
+  box-shadow:
+    0 0 25px rgba(157, 77, 255, .5),
+    0 0 55px rgba(255, 48, 79, .12);
 }
 
 .shophead {
@@ -254,11 +304,34 @@ button.green,
 #skinList > * {
   min-width: 0;
   padding: 11px;
-  border: 1px solid rgba(0, 234, 255, .35);
+  border: 1px solid rgba(0, 234, 255, .4);
   border-radius: 13px;
-  background: linear-gradient(145deg, #24164c, #110b2a);
+  background: linear-gradient(145deg, #29194d, #110b2a);
   color: white;
   overflow-wrap: anywhere;
+  box-shadow: 0 0 12px rgba(0, 234, 255, .08);
+}
+
+.skin-preview {
+  filter: drop-shadow(0 0 8px rgba(0, 234, 255, .45));
+}
+
+/* FOCUS & ACCESSIBILITY */
+
+button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+/* ANIMATIONS */
+
+@keyframes startGlow {
+  from {
+    box-shadow: 0 0 10px rgba(57, 255, 156, .2);
+  }
+  to {
+    box-shadow: 0 0 24px rgba(57, 255, 156, .55);
+  }
 }
 
 /* SCROLLBAR */
@@ -277,7 +350,7 @@ button.green,
   border-radius: 10px;
 }
 
-/* TELEFON */
+/* PHONE */
 
 @media (max-width: 420px) {
   #app {
@@ -307,10 +380,24 @@ button.green,
   #skinList {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .shopbox {
+    padding: 13px;
+  }
 }
 
 @media (min-width: 700px) {
   #app {
     padding-top: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
   }
 }
