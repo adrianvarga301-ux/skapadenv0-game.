@@ -1,7 +1,7 @@
 
 /* ============================================
    SKAPADEN - PNG VISUAL UPGRADE
-   Loads the supplied artwork from www/assets
+   Loads the supplied artwork from assets
    ============================================ */
 
 (() => {
@@ -65,7 +65,7 @@
     }
   };
 
-  // ---------- ANIMATED HERO ----------
+  // ---------- SKIN FILTERS ----------
 
   const skinFilters = {
     red: "none",
@@ -80,6 +80,8 @@
     neon: "hue-rotate(125deg) saturate(1.7)"
   };
 
+  // ---------- ANIMATED PNG BIRD ----------
+
   drawBird = function() {
     const available = birdFrames.filter(ready);
 
@@ -92,6 +94,18 @@
     const img = available[index];
     const skin = currentSkin();
 
+    // Păstrează proporțiile originale ale PNG-ului.
+    const maxWidth = 110;
+    const maxHeight = 100;
+
+    const scale = Math.min(
+      maxWidth / img.naturalWidth,
+      maxHeight / img.naturalHeight
+    );
+
+    const width = img.naturalWidth * scale;
+    const height = img.naturalHeight * scale;
+
     ctx.save();
     ctx.translate(bird.x, bird.y);
     ctx.rotate(bird.rotation);
@@ -100,7 +114,13 @@
     ctx.shadowBlur = 18;
     ctx.shadowColor = skin.light;
 
-    ctx.drawImage(img, -52, -35, 104, 70);
+    ctx.drawImage(
+      img,
+      -width / 2,
+      -height / 2,
+      width,
+      height
+    );
 
     ctx.restore();
   };
@@ -121,6 +141,7 @@
 
       ctx.save();
       ctx.translate(item.x, item.y);
+
       ctx.scale(
         Math.max(0.22, Math.abs(Math.cos(item.rotation))),
         1
@@ -137,15 +158,16 @@
 
         ctx.drawImage(img, -20, -22, 40, 44);
       } else {
-        // Fallback if an image has not loaded yet.
         ctx.shadowBlur = 12;
 
         if (item.type === "coin") {
           ctx.shadowColor = "#ffd83d";
           ctx.fillStyle = "#ffcf35";
+
           ctx.beginPath();
           ctx.arc(0, 0, 13, 0, Math.PI * 2);
           ctx.fill();
+
           ctx.fillStyle = "#9b6200";
           ctx.font = "bold 15px Arial";
           ctx.textAlign = "center";
@@ -153,6 +175,7 @@
         } else {
           ctx.shadowColor = "#28dfff";
           ctx.fillStyle = "#28dfff";
+
           ctx.beginPath();
           ctx.moveTo(0, -17);
           ctx.lineTo(13, -3);
