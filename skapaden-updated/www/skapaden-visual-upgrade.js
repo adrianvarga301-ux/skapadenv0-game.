@@ -1,254 +1,148 @@
-/* ============================================
-   SKAPADEN - VISUAL FIX
-   SK coin, clean gems, original colored birds
-   ============================================ */
+/* =========================================
+   SKAPADEN - BIRD DESIGN FIX
+   ========================================= */
 
-(() => {
-  "use strict";
+function drawSkapadenHero(c, skin, scale = 1) {
+  c.save();
+  c.scale(scale, scale);
 
-  // Păstrăm desenarea originală a păsării și a porților.
-  const originalBird = drawBird;
-  const originalObstacles = drawObstacles;
-  const originalShop = renderShop;
+  const t = typeof worldTime !== "undefined" ? worldTime : 0;
+  const flap = Math.sin(t * 0.38);
 
-  // ---------- COINS AND GEMS ----------
+  // Pelerina
+  c.fillStyle = skin.dark;
+  c.beginPath();
+  c.moveTo(-13, -8);
+  c.lineTo(-36, -17);
+  c.lineTo(-55, 17);
+  c.lineTo(-27, 13);
+  c.closePath();
+  c.fill();
 
-  drawCollectibles = function () {
-    collectibles.forEach(item => {
-      if (item.collected) return;
+  // Aripa din spate
+  c.save();
+  c.translate(-9, 5);
+  c.rotate(-0.3 + flap * 0.1);
+  c.fillStyle = skin.dark;
+  c.beginPath();
+  c.moveTo(0, 0);
+  c.quadraticCurveTo(-19, -24, -31, -12);
+  c.quadraticCurveTo(-25, 7, -5, 12);
+  c.closePath();
+  c.fill();
+  c.restore();
 
-      item.rotation = (item.rotation || 0) + 0.08;
+  // Corp
+  const body = c.createLinearGradient(-20, -22, 22, 23);
+  body.addColorStop(0, skin.light);
+  body.addColorStop(0.5, skin.body);
+  body.addColorStop(1, skin.dark);
 
-      const isCoin = item.type === "coin";
+  c.shadowColor = skin.body;
+  c.shadowBlur = 10;
+  c.fillStyle = body;
+  c.beginPath();
+  c.ellipse(0, 0, 27, 21, 0, 0, Math.PI * 2);
+  c.fill();
+  c.shadowBlur = 0;
 
-      ctx.save();
-      ctx.translate(item.x, item.y);
+  // Aripa din fata
+  c.save();
+  c.translate(-9, 5);
+  c.rotate(-0.2 + flap * 0.16);
+  c.fillStyle = skin.wing;
+  c.beginPath();
+  c.moveTo(0, 0);
+  c.quadraticCurveTo(-10, -19, -25, -12);
+  c.quadraticCurveTo(-27, 5, -7, 12);
+  c.closePath();
+  c.fill();
+  c.restore();
 
-      // Rotație animată, fără imagini suprapuse.
-      const turn = Math.abs(Math.cos(item.rotation));
-      ctx.scale(Math.max(0.18, turn), 1);
+  // Emblema SK
+  c.fillStyle = "#ffffff";
+  c.beginPath();
+  c.arc(0, 0, 9, 0, Math.PI * 2);
+  c.fill();
 
-      if (isCoin) {
-        // Glow auriu
-        ctx.shadowBlur = 22;
-        ctx.shadowColor = "#ffd52e";
+  c.fillStyle = skin.dark;
+  c.font = "900 10px Arial";
+  c.textAlign = "center";
+  c.textBaseline = "middle";
+  c.fillText("SK", 0, 1);
 
-        // Corpul monedei
-        const gold = ctx.createRadialGradient(
-          -5, -6, 2,
-          0, 0, 19
-        );
+  // Ochi
+  c.fillStyle = "#ffffff";
+  c.beginPath();
+  c.ellipse(14, -9, 7, 8, 0, 0, Math.PI * 2);
+  c.fill();
 
-        gold.addColorStop(0, "#fffbd0");
-        gold.addColorStop(0.3, "#ffe878");
-        gold.addColorStop(0.7, "#f5ad16");
-        gold.addColorStop(1, "#9b5700");
+  c.fillStyle = "#101020";
+  c.beginPath();
+  c.arc(16, -8, 3, 0, Math.PI * 2);
+  c.fill();
 
-        ctx.fillStyle = gold;
-        ctx.beginPath();
-        ctx.arc(0, 0, 17, 0, Math.PI * 2);
-        ctx.fill();
+  // Cioc
+  c.fillStyle = "#ffad32";
+  c.beginPath();
+  c.moveTo(21, -2);
+  c.lineTo(36, 3);
+  c.lineTo(21, 7);
+  c.closePath();
+  c.fill();
 
-        // Margine exterioară
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = "#fff2a1";
-        ctx.lineWidth = 2.5;
-        ctx.stroke();
+  // Creastă
+  c.fillStyle = skin.light;
+  c.beginPath();
+  c.moveTo(1, -19);
+  c.lineTo(5, -31);
+  c.lineTo(11, -19);
+  c.closePath();
+  c.fill();
 
-        // Margine interioară
-        ctx.strokeStyle = "#bd7908";
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(0, 0, 12.5, 0, Math.PI * 2);
-        ctx.stroke();
+  c.restore();
+}
 
-        // Literele SK
-        ctx.fillStyle = "#8a4b00";
-        ctx.font = "900 11px Orbitron, Arial";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText("SK", 0, 1);
+// Pasarea din joc
+drawBird = function () {
+  const skin = currentSkin();
 
-        // Reflexie
-        ctx.fillStyle = "rgba(255,255,255,.65)";
-        ctx.beginPath();
-        ctx.ellipse(-7, -9, 3, 1.5, -0.5, 0, Math.PI * 2);
-        ctx.fill();
+  ctx.save();
+  ctx.translate(bird.x, bird.y);
+  ctx.rotate(bird.rotation);
+  drawSkapadenHero(ctx, skin, 1);
+  ctx.restore();
+};
 
-      } else {
-        // Diamant cyan
-        ctx.shadowBlur = 22;
-        ctx.shadowColor = "#00eaff";
+// Pasarea din magazin
+const previousShopRender = renderShop;
 
-        const gem = ctx.createLinearGradient(
-          -13, -17, 13, 17
-        );
+renderShop = function () {
+  previousShopRender();
 
-        gem.addColorStop(0, "#ffffff");
-        gem.addColorStop(0.3, "#a8ffff");
-        gem.addColorStop(0.65, "#18dfff");
-        gem.addColorStop(1, "#0872d9");
+  document.querySelectorAll("#skinList .skin-preview").forEach((preview, index) => {
+    const skin = SKINS[index];
+    if (!skin) return;
 
-        ctx.fillStyle = gem;
+    preview.innerHTML = "";
 
-        ctx.beginPath();
-        ctx.moveTo(0, -18);
-        ctx.lineTo(14, -4);
-        ctx.lineTo(9, 9);
-        ctx.lineTo(0, 18);
-        ctx.lineTo(-9, 9);
-        ctx.lineTo(-14, -4);
-        ctx.closePath();
-        ctx.fill();
+    const mini = document.createElement("canvas");
+    mini.width = 180;
+    mini.height = 120;
 
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = "#d9ffff";
-        ctx.lineWidth = 1.8;
-        ctx.stroke();
+    mini.style.width = "100%";
+    mini.style.height = "100%";
+    mini.style.objectFit = "contain";
+    mini.style.display = "block";
 
-        // Fațete
-        ctx.fillStyle = "rgba(255,255,255,.55)";
-        ctx.beginPath();
-        ctx.moveTo(0, -16);
-        ctx.lineTo(0, 12);
-        ctx.lineTo(-10, -4);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.fillStyle = "rgba(0,90,220,.25)";
-        ctx.beginPath();
-        ctx.moveTo(0, -16);
-        ctx.lineTo(10, -4);
-        ctx.lineTo(0, 12);
-        ctx.closePath();
-        ctx.fill();
-      }
-
-      ctx.restore();
-    });
-
-    ctx.shadowBlur = 0;
-  };
-
-  // ---------- SHOP BIRD PREVIEWS ----------
-
-  function drawMiniBird(canvas, skin) {
-    const c = canvas.getContext("2d");
-
-    c.clearRect(0, 0, canvas.width, canvas.height);
-
+    const c = mini.getContext("2d");
     c.save();
-    c.translate(50, 39);
-
-    // Glow
-    c.shadowBlur = 15;
-    c.shadowColor = skin.body;
-
-    // Pelerină
-    c.fillStyle = skin.dark;
-    c.beginPath();
-    c.moveTo(-12, -5);
-    c.lineTo(-34, -15);
-    c.lineTo(-43, 17);
-    c.lineTo(-12, 12);
-    c.closePath();
-    c.fill();
-
-    // Aripă
-    c.fillStyle = skin.wing;
-    c.beginPath();
-    c.moveTo(-8, 5);
-    c.quadraticCurveTo(-24, -17, -33, -5);
-    c.quadraticCurveTo(-25, 15, -7, 13);
-    c.closePath();
-    c.fill();
-
-    // Corp
-    const body = c.createLinearGradient(-15, -20, 20, 20);
-    body.addColorStop(0, skin.light);
-    body.addColorStop(0.5, skin.body);
-    body.addColorStop(1, skin.dark);
-
-    c.fillStyle = body;
-    c.beginPath();
-    c.ellipse(0, 0, 25, 20, 0, 0, Math.PI * 2);
-    c.fill();
-
-    c.shadowBlur = 0;
-
-    // Insigna SK
-    c.fillStyle = "#fff";
-    c.beginPath();
-    c.arc(0, 3, 8, 0, Math.PI * 2);
-    c.fill();
-
-    c.fillStyle = skin.dark;
-    c.font = "bold 8px Arial";
-    c.textAlign = "center";
-    c.textBaseline = "middle";
-    c.fillText("SK", 0, 3);
-
-    // Ochi
-    c.fillStyle = "#fff";
-    c.beginPath();
-    c.ellipse(14, -9, 7, 8, 0, 0, Math.PI * 2);
-    c.fill();
-
-    c.fillStyle = "#101020";
-    c.beginPath();
-    c.arc(16, -8, 3, 0, Math.PI * 2);
-    c.fill();
-
-    // Cioc
-    c.fillStyle = "#ffad25";
-    c.beginPath();
-    c.moveTo(21, -1);
-    c.lineTo(39, 5);
-    c.lineTo(21, 9);
-    c.closePath();
-    c.fill();
-
-    // Creastă
-    c.fillStyle = skin.wing;
-    c.beginPath();
-    c.moveTo(-5, -17);
-    c.lineTo(1, -28);
-    c.lineTo(7, -17);
-    c.closePath();
-    c.fill();
-
+    c.translate(90, 60);
+    drawSkapadenHero(c, skin, 1.15);
     c.restore();
-  }
 
-  renderShop = function () {
-    originalShop();
+    preview.appendChild(mini);
+  });
+};
 
-    document
-      .querySelectorAll("#skinList .skin-preview")
-      .forEach((preview, index) => {
-        const skin = SKINS[index];
-        if (!skin) return;
-
-        preview.innerHTML = "";
-        preview.style.background =
-          "radial-gradient(circle, rgba(0,234,255,.16), transparent 75%)";
-
-        const mini = document.createElement("canvas");
-        mini.width = 100;
-        mini.height = 76;
-        mini.style.width = "100%";
-        mini.style.height = "100%";
-
-        drawMiniBird(mini, skin);
-        preview.appendChild(mini);
-      });
-  };
-
-  // Porțile originale rămân neschimbate.
-  drawObstacles = originalObstacles;
-
-  // Pasărea originală rămâne neschimbată.
-  drawBird = originalBird;
-
-  console.log("SKAPADEN Visual Fix loaded!");
-})();
+console.log("SKAPADEN: pasarea supererou actualizata!");
