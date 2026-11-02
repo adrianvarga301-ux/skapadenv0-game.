@@ -1,109 +1,15 @@
 /* ============================================
-   SKAPADEN - VISUAL UPGRADE
-   Animated bird, coins, gems, energy gates
+   SKAPADEN - VISUAL FIX
+   SK coin, clean gems, original colored birds
    ============================================ */
 
 (() => {
   "use strict";
 
-  // ---------- LOAD ASSETS ----------
-
-  function loadAsset(name) {
-    const img = new Image();
-    img.src = "assets/" + name;
-    return img;
-  }
-
-  const birdFrames = Array.from(
-    { length: 6 },
-    (_, i) => loadAsset(`bird_fly_${i + 1}.png`)
-  );
-
-  const coinFrames = Array.from(
-    { length: 4 },
-    (_, i) => loadAsset(`coin_SK_${i + 1}.png`)
-  );
-
-  const gems = [
-    loadAsset("gem_blue_1.png"),
-    loadAsset("gem_blue_2.png"),
-    loadAsset("gem_purple_1.png"),
-    loadAsset("gem_purple_2.png")
-  ];
-
-  const cityBackground = loadAsset("city_background.png");
-  const skyEffects = loadAsset("clouds_and_sky_effects.png");
-
-  function ready(img) {
-    return img &&
-      img.complete &&
-      img.naturalWidth > 0;
-  }
-
-  function animationFrame(length, speed) {
-    return Math.floor(worldTime / speed) % length;
-  }
-
-  // ---------- ORIGINAL FUNCTIONS ----------
-
+  // Păstrăm desenarea originală a păsării și a porților.
   const originalBird = drawBird;
-  const originalCoins = drawCollectibles;
   const originalObstacles = drawObstacles;
   const originalShop = renderShop;
-
-  // ---------- SKIN COLORS ----------
-
-  const skinHues = {
-    red: 0,
-    gold: 35,
-    blue: 190,
-    green: 95,
-    purple: 265,
-    flame: 18,
-    ice: 165,
-    pink: 315,
-    shadow: 245,
-    neon: 145
-  };
-
-  // ---------- ANIMATED BIRD ----------
-
-  drawBird = function () {
-    const img = birdFrames[
-      animationFrame(birdFrames.length, 4)
-    ];
-
-    if (!ready(img)) {
-      originalBird();
-      return;
-    }
-
-    const skin = currentSkin();
-    const hue = skinHues[skin.id] || 0;
-
-    ctx.save();
-
-    ctx.translate(bird.x, bird.y);
-    ctx.rotate(bird.rotation || 0);
-
-    ctx.shadowBlur = 22;
-    ctx.shadowColor = skin.body;
-
-    ctx.filter =
-      `hue-rotate(${hue}deg) saturate(1.35)`;
-
-    ctx.drawImage(
-      img,
-      -39,
-      -32,
-      78,
-      64
-    );
-
-    ctx.filter = "none";
-
-    ctx.restore();
-  };
 
   // ---------- COINS AND GEMS ----------
 
@@ -111,76 +17,112 @@
     collectibles.forEach(item => {
       if (item.collected) return;
 
+      item.rotation = (item.rotation || 0) + 0.08;
+
       const isCoin = item.type === "coin";
 
-      let img;
-
-      if (isCoin) {
-        img = coinFrames[
-          animationFrame(coinFrames.length, 7)
-        ];
-      } else {
-        img = gems[
-          animationFrame(gems.length, 8)
-        ];
-      }
-
-      // Fallback if an image cannot load.
-      if (!ready(img)) {
-        ctx.save();
-
-        ctx.translate(item.x, item.y);
-        ctx.rotate(item.rotation);
-
-        ctx.shadowBlur = 18;
-        ctx.shadowColor = isCoin
-          ? "#ffd83d"
-          : "#28dfff";
-
-        ctx.fillStyle = isCoin
-          ? "#ffcf35"
-          : "#35eaff";
-
-        ctx.beginPath();
-
-        if (isCoin) {
-          ctx.arc(0, 0, 13, 0, Math.PI * 2);
-        } else {
-          ctx.moveTo(0, -17);
-          ctx.lineTo(13, -3);
-          ctx.lineTo(0, 17);
-          ctx.lineTo(-13, -3);
-          ctx.closePath();
-        }
-
-        ctx.fill();
-        ctx.restore();
-        return;
-      }
-
-      item.rotation += 0.08;
-
       ctx.save();
-
       ctx.translate(item.x, item.y);
 
-      ctx.scale(
-        Math.max(0.18, Math.abs(Math.cos(item.rotation))),
-        1
-      );
+      // Rotație animată, fără imagini suprapuse.
+      const turn = Math.abs(Math.cos(item.rotation));
+      ctx.scale(Math.max(0.18, turn), 1);
 
-      ctx.shadowBlur = 20;
-      ctx.shadowColor = isCoin
-        ? "#ffd83d"
-        : "#28dfff";
+      if (isCoin) {
+        // Glow auriu
+        ctx.shadowBlur = 22;
+        ctx.shadowColor = "#ffd52e";
 
-      ctx.drawImage(
-        img,
-        -19,
-        -19,
-        38,
-        38
-      );
+        // Corpul monedei
+        const gold = ctx.createRadialGradient(
+          -5, -6, 2,
+          0, 0, 19
+        );
+
+        gold.addColorStop(0, "#fffbd0");
+        gold.addColorStop(0.3, "#ffe878");
+        gold.addColorStop(0.7, "#f5ad16");
+        gold.addColorStop(1, "#9b5700");
+
+        ctx.fillStyle = gold;
+        ctx.beginPath();
+        ctx.arc(0, 0, 17, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Margine exterioară
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = "#fff2a1";
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // Margine interioară
+        ctx.strokeStyle = "#bd7908";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, 12.5, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Literele SK
+        ctx.fillStyle = "#8a4b00";
+        ctx.font = "900 11px Orbitron, Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("SK", 0, 1);
+
+        // Reflexie
+        ctx.fillStyle = "rgba(255,255,255,.65)";
+        ctx.beginPath();
+        ctx.ellipse(-7, -9, 3, 1.5, -0.5, 0, Math.PI * 2);
+        ctx.fill();
+
+      } else {
+        // Diamant cyan
+        ctx.shadowBlur = 22;
+        ctx.shadowColor = "#00eaff";
+
+        const gem = ctx.createLinearGradient(
+          -13, -17, 13, 17
+        );
+
+        gem.addColorStop(0, "#ffffff");
+        gem.addColorStop(0.3, "#a8ffff");
+        gem.addColorStop(0.65, "#18dfff");
+        gem.addColorStop(1, "#0872d9");
+
+        ctx.fillStyle = gem;
+
+        ctx.beginPath();
+        ctx.moveTo(0, -18);
+        ctx.lineTo(14, -4);
+        ctx.lineTo(9, 9);
+        ctx.lineTo(0, 18);
+        ctx.lineTo(-9, 9);
+        ctx.lineTo(-14, -4);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = "#d9ffff";
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+
+        // Fațete
+        ctx.fillStyle = "rgba(255,255,255,.55)";
+        ctx.beginPath();
+        ctx.moveTo(0, -16);
+        ctx.lineTo(0, 12);
+        ctx.lineTo(-10, -4);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = "rgba(0,90,220,.25)";
+        ctx.beginPath();
+        ctx.moveTo(0, -16);
+        ctx.lineTo(10, -4);
+        ctx.lineTo(0, 12);
+        ctx.closePath();
+        ctx.fill();
+      }
 
       ctx.restore();
     });
@@ -188,222 +130,95 @@
     ctx.shadowBlur = 0;
   };
 
-  // ---------- ENERGY GATES ----------
-
-  drawObstacles = function () {
-
-    function drawGate(x, y, width, height, isTop) {
-      if (height <= 0) return;
-
-      const capHeight = Math.min(24, height);
-
-      ctx.save();
-
-      // Dark metallic body
-      const metal = ctx.createLinearGradient(
-        x,
-        0,
-        x + width,
-        0
-      );
-
-      metal.addColorStop(0, "#080b20");
-      metal.addColorStop(0.2, "#35205e");
-      metal.addColorStop(0.5, "#263b5b");
-      metal.addColorStop(0.8, "#47216d");
-      metal.addColorStop(1, "#080b20");
-
-      ctx.fillStyle = metal;
-
-      ctx.fillRect(
-        x + 9,
-        y,
-        width - 18,
-        height
-      );
-
-      // Side shadows
-      ctx.fillStyle = "rgba(0,0,0,.4)";
-
-      ctx.fillRect(x + 14, y, 8, height);
-      ctx.fillRect(
-        x + width - 22,
-        y,
-        8,
-        height
-      );
-
-      // Cyan energy rail
-      ctx.shadowBlur = 16;
-      ctx.shadowColor = "#00eaff";
-
-      ctx.fillStyle = "#00eaff";
-
-      ctx.fillRect(
-        x + 25,
-        y,
-        4,
-        height
-      );
-
-      // Purple energy rail
-      ctx.shadowColor = "#b34dff";
-      ctx.fillStyle = "#b34dff";
-
-      ctx.fillRect(
-        x + width - 29,
-        y,
-        4,
-        height
-      );
-
-      // Energy lines
-      for (
-        let sy = y + 35;
-        sy < y + height - 8;
-        sy += 58
-      ) {
-        ctx.shadowBlur = 12;
-        ctx.shadowColor = "#00eaff";
-
-        ctx.fillStyle = "rgba(0,234,255,.8)";
-
-        ctx.fillRect(
-          x + 13,
-          sy,
-          width - 26,
-          3
-        );
-
-        ctx.fillStyle = "rgba(157,77,255,.8)";
-
-        ctx.fillRect(
-          x + 18,
-          sy + 8,
-          width - 36,
-          2
-        );
-      }
-
-      // Metallic gate cap
-      const capY = isTop
-        ? y + height - capHeight
-        : y;
-
-      const cap = ctx.createLinearGradient(
-        x,
-        capY,
-        x + width,
-        capY + capHeight
-      );
-
-      cap.addColorStop(0, "#17203d");
-      cap.addColorStop(0.5, "#65718f");
-      cap.addColorStop(1, "#151a36");
-
-      ctx.shadowBlur = 18;
-      ctx.shadowColor = "#00eaff";
-
-      ctx.fillStyle = cap;
-
-      ctx.fillRect(
-        x,
-        capY,
-        width,
-        capHeight
-      );
-
-      ctx.fillStyle = "#00eaff";
-
-      ctx.fillRect(
-        x,
-        isTop
-          ? capY + capHeight - 4
-          : capY,
-        width,
-        4
-      );
-
-      // Light details
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = "#e8fbff";
-
-      for (
-        let bx = x + 13;
-        bx < x + width - 10;
-        bx += 20
-      ) {
-        ctx.beginPath();
-
-        ctx.arc(
-          bx,
-          capY + capHeight / 2,
-          2,
-          0,
-          Math.PI * 2
-        );
-
-        ctx.fill();
-      }
-
-      ctx.restore();
-    }
-
-    obstacles.forEach(o => {
-      const topHeight =
-        o.gapY - PIPE_GAP / 2;
-
-      const bottomY =
-        o.gapY + PIPE_GAP / 2;
-
-      const bottomHeight =
-        H - 20 - bottomY;
-
-      drawGate(
-        o.x,
-        0,
-        PIPE_WIDTH,
-        topHeight,
-        true
-      );
-
-      drawGate(
-        o.x,
-        bottomY,
-        PIPE_WIDTH,
-        bottomHeight,
-        false
-      );
-
-      // Small energy indicators
-      ctx.save();
-
-      ctx.globalAlpha =
-        0.5 + Math.sin(worldTime * 0.12) * 0.2;
-
-      ctx.shadowBlur = 15;
-      ctx.shadowColor = "#00eaff";
-      ctx.fillStyle = "#00eaff";
-
-      ctx.fillRect(
-        o.x + 4,
-        o.gapY - PIPE_GAP / 2 - 2,
-        5,
-        8
-      );
-
-      ctx.fillRect(
-        o.x + 4,
-        o.gapY + PIPE_GAP / 2 - 6,
-        5,
-        8
-      );
-
-      ctx.restore();
-    });
-  };
-
   // ---------- SHOP BIRD PREVIEWS ----------
+
+  function drawMiniBird(canvas, skin) {
+    const c = canvas.getContext("2d");
+
+    c.clearRect(0, 0, canvas.width, canvas.height);
+
+    c.save();
+    c.translate(50, 39);
+
+    // Glow
+    c.shadowBlur = 15;
+    c.shadowColor = skin.body;
+
+    // Pelerină
+    c.fillStyle = skin.dark;
+    c.beginPath();
+    c.moveTo(-12, -5);
+    c.lineTo(-34, -15);
+    c.lineTo(-43, 17);
+    c.lineTo(-12, 12);
+    c.closePath();
+    c.fill();
+
+    // Aripă
+    c.fillStyle = skin.wing;
+    c.beginPath();
+    c.moveTo(-8, 5);
+    c.quadraticCurveTo(-24, -17, -33, -5);
+    c.quadraticCurveTo(-25, 15, -7, 13);
+    c.closePath();
+    c.fill();
+
+    // Corp
+    const body = c.createLinearGradient(-15, -20, 20, 20);
+    body.addColorStop(0, skin.light);
+    body.addColorStop(0.5, skin.body);
+    body.addColorStop(1, skin.dark);
+
+    c.fillStyle = body;
+    c.beginPath();
+    c.ellipse(0, 0, 25, 20, 0, 0, Math.PI * 2);
+    c.fill();
+
+    c.shadowBlur = 0;
+
+    // Insigna SK
+    c.fillStyle = "#fff";
+    c.beginPath();
+    c.arc(0, 3, 8, 0, Math.PI * 2);
+    c.fill();
+
+    c.fillStyle = skin.dark;
+    c.font = "bold 8px Arial";
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.fillText("SK", 0, 3);
+
+    // Ochi
+    c.fillStyle = "#fff";
+    c.beginPath();
+    c.ellipse(14, -9, 7, 8, 0, 0, Math.PI * 2);
+    c.fill();
+
+    c.fillStyle = "#101020";
+    c.beginPath();
+    c.arc(16, -8, 3, 0, Math.PI * 2);
+    c.fill();
+
+    // Cioc
+    c.fillStyle = "#ffad25";
+    c.beginPath();
+    c.moveTo(21, -1);
+    c.lineTo(39, 5);
+    c.lineTo(21, 9);
+    c.closePath();
+    c.fill();
+
+    // Creastă
+    c.fillStyle = skin.wing;
+    c.beginPath();
+    c.moveTo(-5, -17);
+    c.lineTo(1, -28);
+    c.lineTo(7, -17);
+    c.closePath();
+    c.fill();
+
+    c.restore();
+  }
 
   renderShop = function () {
     originalShop();
@@ -411,103 +226,29 @@
     document
       .querySelectorAll("#skinList .skin-preview")
       .forEach((preview, index) => {
-
         const skin = SKINS[index];
-
         if (!skin) return;
 
         preview.innerHTML = "";
-
-        preview.style.display = "flex";
-        preview.style.alignItems = "center";
-        preview.style.justifyContent = "center";
-
         preview.style.background =
-          "radial-gradient(circle, rgba(0,234,255,.15), transparent 75%)";
+          "radial-gradient(circle, rgba(0,234,255,.16), transparent 75%)";
 
         const mini = document.createElement("canvas");
-
         mini.width = 100;
         mini.height = 76;
+        mini.style.width = "100%";
+        mini.style.height = "100%";
 
-        mini.style.width = "100px";
-        mini.style.height = "76px";
-
-        const c = mini.getContext("2d");
-
-        const img = birdFrames[0];
-
-        if (ready(img)) {
-          c.save();
-
-          c.shadowBlur = 14;
-          c.shadowColor = skin.body;
-
-          c.filter =
-            `hue-rotate(${skinHues[skin.id] || 0}deg) saturate(1.4)`;
-
-          c.drawImage(
-            img,
-            5,
-            3,
-            90,
-            70
-          );
-
-          c.restore();
-        } else {
-          // Bird-head preview while the sprite is loading.
-          c.save();
-
-          c.fillStyle = skin.body;
-          c.shadowBlur = 12;
-          c.shadowColor = skin.body;
-
-          c.beginPath();
-          c.ellipse(45, 39, 28, 23, 0, 0, Math.PI * 2);
-          c.fill();
-
-          c.shadowBlur = 0;
-
-          c.fillStyle = "#fff";
-
-          c.beginPath();
-          c.arc(59, 31, 8, 0, Math.PI * 2);
-          c.fill();
-
-          c.fillStyle = "#101020";
-
-          c.beginPath();
-          c.arc(62, 31, 3, 0, Math.PI * 2);
-          c.fill();
-
-          c.fillStyle = "#ffb52e";
-
-          c.beginPath();
-          c.moveTo(69, 38);
-          c.lineTo(91, 44);
-          c.lineTo(69, 49);
-          c.closePath();
-          c.fill();
-
-          c.restore();
-        }
-
+        drawMiniBird(mini, skin);
         preview.appendChild(mini);
       });
   };
 
-  // Refresh previews after the sprite images load.
-  birdFrames.forEach(img => {
-    img.addEventListener("load", () => {
-      if (typeof renderShop === "function") {
-        renderShop();
-      }
-    });
-  });
+  // Porțile originale rămân neschimbate.
+  drawObstacles = originalObstacles;
 
-  // ---------- END VISUAL UPGRADE ----------
+  // Pasărea originală rămâne neschimbată.
+  drawBird = originalBird;
 
-  console.log("SKAPADEN Visual Upgrade loaded!");
-
+  console.log("SKAPADEN Visual Fix loaded!");
 })();
