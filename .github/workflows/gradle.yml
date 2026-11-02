@@ -1,3 +1,4 @@
+
 name: Build and Publish SKAPADEN
 
 on:
@@ -37,6 +38,9 @@ jobs:
         run: |
           cd skapaden-updated
           npm install
+          mkdir -p www
+          cp -a ../docs/. www/
+          test -f www/index.html
           npx cap sync android
 
       - name: Build Android APK
