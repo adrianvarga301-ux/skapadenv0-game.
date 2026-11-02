@@ -35,6 +35,27 @@ let missionClaimed = read("skapaden_mission_claimed", false);
 let lastDaily = read("skapaden_daily", "");
 
 function save() {
+  const data = {
+    coins,
+    gems,
+    best,
+    sound,
+    musicOn,
+    selectedSkin,
+    ownedSkins,
+    leaderboard,
+    missionProgress,
+    missionClaimed,
+    lastDaily
+  };
+
+  for (const [key, value] of Object.entries(data)) {
+    localStorage.setItem("skapaden_" + key.replace(/[A-Z]/g, m => "_" + m.toLowerCase()), JSON.stringify(value));
+  }
+}
+
+// Compatibilitate cu cheile vechi
+function saveAll() {
   localStorage.setItem("skapaden_coins", JSON.stringify(coins));
   localStorage.setItem("skapaden_gems", JSON.stringify(gems));
   localStorage.setItem("skapaden_best", JSON.stringify(best));
@@ -46,6 +67,15 @@ function save() {
   localStorage.setItem("skapaden_mission", JSON.stringify(missionProgress));
   localStorage.setItem("skapaden_mission_claimed", JSON.stringify(missionClaimed));
   localStorage.setItem("skapaden_daily", JSON.stringify(lastDaily));
+}
+
+function todayKey() {
+  const d = new Date();
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0")
+  ].join("-");
 }
 
 function hud() {
@@ -91,17 +121,24 @@ const musicNotes = [
 ];
 
 function audioReady() {
-  if (!audio) {
-    audio = new (window.AudioContext || window.webkitAudioContext)();
+  try {
+    if (!audio) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return false;
+      audio = new AudioContextClass();
+    }
+
+    if (audio.state === "suspended") audio.resume();
+    return true;
+  } catch {
+    return false;
   }
-  if (audio.state === "suspended") audio.resume();
 }
 
 function playTone(freq, duration = 0.18, volume = 0.05, type = "sine") {
-  if (!sound) return;
+  if (!sound || !audioReady()) return;
 
   try {
-    audioReady();
     const osc = audio.createOscillator();
     const gain = audio.createGain();
 
@@ -114,26 +151,24 @@ function playTone(freq, duration = 0.18, volume = 0.05, type = "sine") {
     gain.connect(audio.destination);
     osc.start();
     osc.stop(audio.currentTime + duration);
-  } catch(e) {}
+  } catch {}
 }
 
 function startMusic() {
   if (!musicOn || musicTimer || state !== "playing") return;
+  if (!audioReady()) return;
 
   musicTimer = setInterval(() => {
-    if (!musicOn || state !== "playing") return;
+    if (!musicOn || state !== "playing" || !audio) return;
 
     try {
-      audioReady();
-
       const freq = musicNotes[musicStep % musicNotes.length];
-
       const osc = audio.createOscillator();
       const gain = audio.createGain();
 
       osc.type = "triangle";
       osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.022, audio.currentTime);
+      gain.gain.setValueAtTime(0.018, audio.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.3);
 
       osc.connect(gain);
@@ -141,22 +176,9 @@ function startMusic() {
       osc.start();
       osc.stop(audio.currentTime + 0.3);
 
-      if (musicStep % 4 === 0) {
-        const bass = audio.createOscillator();
-        const bassGain = audio.createGain();
-        bass.type = "sine";
-        bass.frequency.value = freq / 2;
-        bassGain.gain.setValueAtTime(0.025, audio.currentTime);
-        bassGain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.45);
-        bass.connect(bassGain);
-        bassGain.connect(audio.destination);
-        bass.start();
-        bass.stop(audio.currentTime + 0.45);
-      }
-
       musicStep++;
-    } catch(e) {}
-  }, 280);
+    } catch {}
+  }, 300);
 }
 
 function stopMusic() {
@@ -185,13 +207,13 @@ $("sound").insertAdjacentElement("afterend", musicButton);
 
 $("sound").addEventListener("click", () => {
   sound = !sound;
-  save();
+  saveAll();
   updateAudioButtons();
 });
 
 musicButton.addEventListener("click", () => {
   musicOn = !musicOn;
-  save();
+  saveAll();
   updateAudioButtons();
 
   if (musicOn) startMusic();
@@ -201,8 +223,6 @@ musicButton.addEventListener("click", () => {
 function explosionSound() {
   playTone(120, 0.5, 0.13, "sawtooth");
 }
-
-updateAudioButtons();
 
 // ---------- GAME VARIABLES ----------
 
@@ -233,8 +253,7 @@ function createBuildings() {
     buildings.push({
       x: i * 30,
       h: 100 + Math.random() * 240,
-      w: 24 + Math.random() * 17,
-      shift: Math.random() * 20
+      w: 24 + Math.random() * 17
     });
   }
 }
@@ -301,7 +320,7 @@ function drawBackground() {
   ctx.fillRect(0, H - 20, W, 3);
 }
 
-// ---------- BIRD DRAWING ----------
+// ---------- BIRD ----------
 
 function drawBird() {
   const skin = currentSkin();
@@ -311,7 +330,7 @@ function drawBird() {
   ctx.rotate(bird.rotation);
 
   // Cape
-  ctx.fillStyle = "#a20e2c";
+  ctx.fillStyle = skin.dark;
   ctx.beginPath();
   ctx.moveTo(-12, 5);
   ctx.lineTo(-52, 20 + Math.sin(frame * 0.18) * 8);
@@ -319,7 +338,7 @@ function drawBird() {
   ctx.lineTo(-8, -10);
   ctx.fill();
 
-  ctx.strokeStyle = "#ff536e";
+  ctx.strokeStyle = skin.light;
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(-13, 4);
@@ -360,7 +379,7 @@ function drawBird() {
   ctx.lineTo(22, 10);
   ctx.fill();
 
-  // SK emblem
+  // Emblem
   ctx.fillStyle = "white";
   ctx.font = "bold 11px Arial";
   ctx.textAlign = "center";
@@ -405,33 +424,27 @@ function drawObstaclePart(x, y, width, height, isTop) {
   ctx.fillStyle = gradient;
   ctx.fillRect(x, y, width, height);
 
-  // Metal panels
   ctx.fillStyle = "#222a3e";
   ctx.fillRect(x + 9, y, 10, height);
   ctx.fillRect(x + width - 19, y, 10, height);
 
-  // Purple neon
   ctx.shadowBlur = 15;
   ctx.shadowColor = "#8d36ff";
   ctx.fillStyle = "#a34cff";
   ctx.fillRect(x + 25, y, 5, height);
   ctx.shadowBlur = 0;
 
-  // Cyan neon
   ctx.shadowBlur = 15;
   ctx.shadowColor = "#24dfff";
   ctx.fillStyle = "#24dfff";
   ctx.fillRect(x + 65, y, 4, height);
   ctx.shadowBlur = 0;
 
-  // Segments
   ctx.fillStyle = "#505b73";
-
   for (let sy = y + 35; sy < y + height; sy += 75) {
     ctx.fillRect(x - 6, sy, width + 12, 7);
   }
 
-  // Edge near opening
   const edgeY = isTop ? y + height - 17 : y;
 
   ctx.fillStyle = "#11182b";
@@ -517,14 +530,16 @@ function collect(item) {
   }
 
   if (missionProgress >= 20 && !missionClaimed) {
-    coins += 150;
+    missionProgress = 20;
     missionClaimed = true;
+    coins += 150;
+
     $("missionNotice").textContent = "🏆 Misiune completată! +150 monede!";
     playTone(900, 0.5, 0.1);
   }
 
   createParticles(item.x, item.y, item.type === "coin" ? "#ffda42" : "#35eaff");
-  save();
+  saveAll();
   hud();
 }
 
@@ -565,7 +580,6 @@ function hitObstacle() {
 
   for (const o of obstacles) {
     const overlapsX = right > o.x && left < o.x + PIPE_WIDTH;
-
     if (!overlapsX) continue;
 
     const gapTop = o.gapY - PIPE_GAP / 2;
@@ -584,9 +598,7 @@ function collectCollision() {
     const dx = bird.x - item.x;
     const dy = bird.y - item.y;
 
-    if (Math.sqrt(dx * dx + dy * dy) < 33) {
-      collect(item);
-    }
+    if (Math.hypot(dx, dy) < 33) collect(item);
   });
 }
 
@@ -602,8 +614,7 @@ function addLeaderboardScore(value) {
 
   leaderboard.sort((a, b) => b.score - a.score);
   leaderboard = leaderboard.slice(0, 10);
-
-  save();
+  saveAll();
 }
 
 function showLeaderboard() {
@@ -689,7 +700,8 @@ function renderShop() {
     action.onclick = () => {
       if (owned) {
         selectedSkin = skin.id;
-        save();
+        $("shopNotice").textContent = "Costum echipat!";
+        saveAll();
         renderShop();
         return;
       }
@@ -706,7 +718,7 @@ function renderShop() {
       ownedSkins.push(skin.id);
       selectedSkin = skin.id;
       $("shopNotice").textContent = "Costum deblocat!";
-      save();
+      saveAll();
       hud();
       renderShop();
     };
@@ -718,17 +730,19 @@ function renderShop() {
 
 $("shop").onclick = () => {
   $("shopModal").classList.add("open");
+  $("shopNotice").textContent = "";
   renderShop();
 };
 
 $("closeShop").onclick = () => {
   $("shopModal").classList.remove("open");
+  if (state === "over") gameOverScreen.style.display = "flex";
 };
 
 // ---------- DAILY REWARD ----------
 
 $("dailyButton").onclick = () => {
-  const today = new Date().toLocaleDateString("en-CA");
+  const today = todayKey();
 
   if (lastDaily === today) {
     $("dailyNotice").textContent = "Ai primit deja recompensa de azi!";
@@ -740,11 +754,42 @@ $("dailyButton").onclick = () => {
 
   $("dailyNotice").textContent = "🎁 Ai primit 100 de monede!";
   playTone(850, 0.3, 0.07);
-  save();
+  saveAll();
   hud();
 };
 
-// ---------- GAME OVER SCREEN ----------
+// ---------- MISSION BUTTON ----------
+
+$("missionButton").onclick = () => {
+  if (missionClaimed) {
+    $("missionNotice").textContent = "🏆 Misiunea este deja completată!";
+    return;
+  }
+
+  $("missionNotice").textContent =
+    `🏆 Mai ai nevoie de ${Math.max(0, 20 - missionProgress)} monede colectate pentru bonusul de 150!`;
+
+  if (missionProgress >= 20) {
+    missionClaimed = true;
+    coins += 150;
+    $("missionNotice").textContent = "🏆 Misiune completată! +150 monede!";
+    saveAll();
+    hud();
+  }
+};
+
+// ---------- EXTRA MENU BUTTONS ----------
+
+const leaderboardMenuButton = document.createElement("button");
+leaderboardMenuButton.textContent = "🏆 CLASAMENT";
+leaderboardMenuButton.style.cssText = `
+  background:#25134c;color:white;border:1px solid #a778ff;
+  border-radius:12px;padding:10px;font-weight:bold;
+`;
+$("shop").insertAdjacentElement("afterend", leaderboardMenuButton);
+leaderboardMenuButton.addEventListener("click", showLeaderboard);
+
+// ---------- GAME OVER ----------
 
 const gameOverScreen = document.createElement("div");
 
@@ -762,7 +807,6 @@ gameOverScreen.innerHTML = `
 
     <h1 style="color:#ff536d;margin:0 0 8px">GAME OVER</h1>
     <p style="color:#b9b8d4">SCORUL TĂU</p>
-
     <div id="finalScore" style="font-size:54px;font-weight:900;color:#ffe36a">0</div>
 
     <div style="display:flex;justify-content:space-around;margin:18px 0">
@@ -782,6 +826,11 @@ gameOverScreen.innerHTML = `
       margin:6px 0;background:#25233c;border:1px solid #35dfff">
       👕 MAGAZIN COSTUME
     </button>
+
+    <button id="backMenuButton" style="width:100%;padding:12px;
+      margin:6px 0;background:#25233c;border:1px solid #a778ff">
+      🏠 MENIU PRINCIPAL
+    </button>
   </div>
 `;
 
@@ -797,7 +846,7 @@ function gameOver() {
   if (score > best) best = score;
 
   addLeaderboardScore(score);
-  save();
+  saveAll();
   hud();
 
   $("finalScore").textContent = score;
@@ -821,9 +870,12 @@ $("gameOverShopButton").onclick = () => {
   renderShop();
 };
 
-$("closeShop").addEventListener("click", () => {
-  if (state === "over") gameOverScreen.style.display = "flex";
-});
+$("backMenuButton").onclick = () => {
+  gameOverScreen.style.display = "none";
+  state = "menu";
+  resetGame();
+  $("message").textContent = "Atinge START ca să începi!";
+};
 
 // ---------- START / RESET / PAUSE ----------
 
@@ -843,6 +895,7 @@ function resetGame() {
 }
 
 function startGame() {
+  gameOverScreen.style.display = "none";
   resetGame();
   state = "playing";
   $("message").textContent = "Atinge ecranul pentru a zbura!";
@@ -858,12 +911,14 @@ function flap() {
 }
 
 $("start").onclick = () => {
-  if (state !== "playing") startGame();
-  else flap();
+  if (state === "menu" || state === "over") {
+    startGame();
+  } else if (state === "playing") {
+    flap();
+  }
 };
 
 $("retry").onclick = () => {
-  gameOverScreen.style.display = "none";
   startGame();
 };
 
@@ -879,6 +934,8 @@ $("pause").onclick = () => {
   }
 };
 
+// ---------- INPUT ----------
+
 canvas.addEventListener("pointerdown", event => {
   event.preventDefault();
 
@@ -887,6 +944,27 @@ canvas.addEventListener("pointerdown", event => {
     flap();
   } else if (state === "playing") {
     flap();
+  }
+});
+
+document.addEventListener("keydown", event => {
+  if (event.code === "Space" || event.code === "ArrowUp") {
+    event.preventDefault();
+
+    if (state === "menu") {
+      startGame();
+      flap();
+    } else if (state === "playing") {
+      flap();
+    } else if (state === "paused") {
+      state = "playing";
+      startMusic();
+    }
+  }
+
+  if (event.code === "Escape" && state === "playing") {
+    state = "paused";
+    stopMusic();
   }
 });
 
@@ -901,7 +979,10 @@ function update(dt) {
   bird.y += bird.velocity * dt;
   bird.rotation = Math.min(0.8, Math.max(-0.5, bird.velocity * 0.08));
 
-  if (frame % 100 < dt) createObstacle();
+  if (frame >= 100) {
+    createObstacle();
+    frame = 0;
+  }
 
   speed = Math.min(6, 3.5 + score * 0.045);
 
@@ -936,7 +1017,7 @@ function update(dt) {
   if (hitObstacle()) gameOver();
 }
 
-// ---------- DRAW GAME ----------
+// ---------- DRAW ----------
 
 function drawHUD() {
   ctx.fillStyle = "rgba(8,5,30,.72)";
@@ -949,8 +1030,8 @@ function drawHUD() {
 }
 
 function drawMenu() {
-  ctx.fillStyle = "rgba(8,5,30,.68)";
-  ctx.fillRect(40, 245, 520, 220);
+  ctx.fillStyle = "rgba(8,5,30,.72)";
+  ctx.fillRect(40, 245, 520, 250);
 
   ctx.textAlign = "center";
   ctx.shadowBlur = 22;
@@ -967,6 +1048,10 @@ function drawMenu() {
   ctx.fillStyle = "#ffe36a";
   ctx.font = "bold 23px Arial";
   ctx.fillText("APASĂ START", W / 2, 420);
+
+  ctx.fillStyle = "white";
+  ctx.font = "16px Arial";
+  ctx.fillText("Evită obstacolele și colectează monede!", W / 2, 460);
 }
 
 function drawPaused() {
@@ -977,6 +1062,9 @@ function drawPaused() {
   ctx.textAlign = "center";
   ctx.font = "bold 48px Arial";
   ctx.fillText("PAUZĂ", W / 2, H / 2);
+
+  ctx.font = "20px Arial";
+  ctx.fillText("Apasă PAUZĂ pentru a continua", W / 2, H / 2 + 45);
 }
 
 function render() {
