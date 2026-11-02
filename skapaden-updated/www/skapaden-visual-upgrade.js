@@ -1,129 +1,248 @@
-/* SKAPADEN VISUAL UPGRADE — include AFTER game.js */
+
+/* ============================================
+   SKAPADEN - PNG VISUAL UPGRADE
+   Loads the supplied artwork from www/assets
+   ============================================ */
+
 (() => {
   const asset = name => "assets/" + name;
-  const load = name => {
+
+  function loadImage(name) {
     const img = new Image();
     img.src = asset(name);
     return img;
-  };
-  const frames = [1,2,3,4,5,6].map(n => load(`bird_fly_${n}.png`));
-  const coinsImg = [1,2,3,4].map(n => load(`coin_SK_${n}.png`));
-  const gemsImg = [
-    load("gem_blue_1.png"), load("gem_blue_2.png"),
-    load("gem_purple_1.png"), load("gem_purple_2.png")
-  ];
-  const city = load("city_background.png");
-  const cloud = load("clouds_and_sky_effects.png");
-  const gateTop = load("gate_top.png");
-  const gateBottom = load("gate_bottom.png");
-  const gateTopAlt = load("gate_top_alt.png");
-  const gateBottomAlt = load("gate_bottom_alt.png");
+  }
 
-  const ready = img => img && img.complete && img.naturalWidth > 0;
-  const oldBackground = drawBackground;
-  const oldBird = drawBird;
-  const oldCollectibles = drawCollectibles;
-  const oldObstaclePart = drawObstaclePart;
+  const birdFrames = [1, 2, 3, 4, 5, 6].map(
+    n => loadImage(`bird_fly_${n}.png`)
+  );
+
+  const coinFrames = [1, 2, 3, 4].map(
+    n => loadImage(`coin_SK_${n}.png`)
+  );
+
+  const gemFrames = [
+    loadImage("gem_blue_1.png"),
+    loadImage("gem_blue_2.png"),
+    loadImage("gem_purple_1.png"),
+    loadImage("gem_purple_2.png")
+  ];
+
+  const city = loadImage("city_background.png");
+  const clouds = loadImage("clouds_and_sky_effects.png");
+
+  const gateTop = loadImage("gate_top.png");
+  const gateBottom = loadImage("gate_bottom.png");
+  const gateTopAlt = loadImage("gate_top_alt.png");
+  const gateBottomAlt = loadImage("gate_bottom_alt.png");
+
+  const ready = img =>
+    img && img.complete && img.naturalWidth > 0;
+
+  const originalBackground = drawBackground;
+  const originalBird = drawBird;
+  const originalCollectibles = drawCollectibles;
+  const originalObstaclePart = drawObstaclePart;
+  const originalRenderShop = renderShop;
+
+  // ---------- BACKGROUND ----------
 
   drawBackground = function() {
-    oldBackground();
+    originalBackground();
+
     if (ready(city)) {
       ctx.save();
-      ctx.globalAlpha = 0.92;
-      // Fit the supplied city art across the lower playfield.
-      ctx.drawImage(city, 0, H - 245, W, 245);
+      ctx.globalAlpha = 0.95;
+      ctx.drawImage(city, 0, H - 265, W, 245);
       ctx.restore();
     }
-    if (ready(cloud)) {
+
+    if (ready(clouds)) {
       ctx.save();
-      ctx.globalAlpha = 0.28;
-      ctx.drawImage(cloud, 0, 80, W, 190);
+      ctx.globalAlpha = 0.3;
+      ctx.drawImage(clouds, 0, 35, W, 220);
       ctx.restore();
     }
+  };
+
+  // ---------- ANIMATED HERO ----------
+
+  const skinFilters = {
+    red: "none",
+    gold: "hue-rotate(28deg) saturate(1.4)",
+    blue: "hue-rotate(185deg) saturate(1.5)",
+    green: "hue-rotate(95deg) saturate(1.35)",
+    purple: "hue-rotate(245deg) saturate(1.4)",
+    flame: "hue-rotate(12deg) saturate(1.6)",
+    ice: "hue-rotate(155deg) brightness(1.2)",
+    pink: "hue-rotate(300deg) saturate(1.5)",
+    shadow: "grayscale(.65) brightness(.75)",
+    neon: "hue-rotate(125deg) saturate(1.7)"
   };
 
   drawBird = function() {
-    const available = frames.filter(ready);
-    if (!available.length) return oldBird();
+    const available = birdFrames.filter(ready);
+
+    if (!available.length) {
+      originalBird();
+      return;
+    }
+
     const index = Math.floor(worldTime / 5) % available.length;
     const img = available[index];
     const skin = currentSkin();
+
     ctx.save();
     ctx.translate(bird.x, bird.y);
     ctx.rotate(bird.rotation);
-    // Recolor the sprite for the selected costume while retaining its art.
-    const filters = {
-      red:"none", gold:"hue-rotate(28deg) saturate(1.4)",
-      blue:"hue-rotate(185deg) saturate(1.5)",
-      green:"hue-rotate(95deg) saturate(1.35)",
-      purple:"hue-rotate(245deg) saturate(1.4)",
-      flame:"hue-rotate(12deg) saturate(1.6)",
-      ice:"hue-rotate(155deg) saturate(.75) brightness(1.2)",
-      pink:"hue-rotate(300deg) saturate(1.5)",
-      shadow:"grayscale(.65) brightness(.72)",
-      neon:"hue-rotate(125deg) saturate(1.7)"
-    };
-    ctx.filter = filters[skin.id] || "none";
-    ctx.shadowBlur = 15;
+
+    ctx.filter = skinFilters[skin.id] || "none";
+    ctx.shadowBlur = 18;
     ctx.shadowColor = skin.light;
+
     ctx.drawImage(img, -52, -35, 104, 70);
+
     ctx.restore();
   };
 
+  // ---------- COINS AND GEMS ----------
+
   drawCollectibles = function() {
-    const coinReady = coinsImg.some(ready);
-    const gemReady = gemsImg.some(ready);
-    if (!coinReady && !gemReady) return oldCollectibles();
     collectibles.forEach((item, i) => {
       if (item.collected) return;
+
       item.rotation += 0.08;
-      const list = item.type === "coin" ? coinsImg : gemsImg;
+
+      const list = item.type === "coin"
+        ? coinFrames
+        : gemFrames;
+
       const available = list.filter(ready);
-      if (!available.length) return;
-      const img = available[Math.floor(worldTime / 4 + i) % available.length];
+
       ctx.save();
       ctx.translate(item.x, item.y);
-      ctx.scale(Math.max(.22, Math.abs(Math.cos(item.rotation))), 1);
-      ctx.shadowBlur = 12;
-      ctx.shadowColor = item.type === "coin" ? "#ffd83d" : "#28dfff";
-      ctx.drawImage(img, -19, -21, 38, 42);
+      ctx.scale(
+        Math.max(0.22, Math.abs(Math.cos(item.rotation))),
+        1
+      );
+
+      if (available.length) {
+        const index = Math.floor(worldTime / 4 + i) % available.length;
+        const img = available[index];
+
+        ctx.shadowBlur = 14;
+        ctx.shadowColor = item.type === "coin"
+          ? "#ffd83d"
+          : "#28dfff";
+
+        ctx.drawImage(img, -20, -22, 40, 44);
+      } else {
+        // Fallback if an image has not loaded yet.
+        ctx.shadowBlur = 12;
+
+        if (item.type === "coin") {
+          ctx.shadowColor = "#ffd83d";
+          ctx.fillStyle = "#ffcf35";
+          ctx.beginPath();
+          ctx.arc(0, 0, 13, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#9b6200";
+          ctx.font = "bold 15px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText("$", 0, 5);
+        } else {
+          ctx.shadowColor = "#28dfff";
+          ctx.fillStyle = "#28dfff";
+          ctx.beginPath();
+          ctx.moveTo(0, -17);
+          ctx.lineTo(13, -3);
+          ctx.lineTo(0, 17);
+          ctx.lineTo(-13, -3);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+
       ctx.restore();
     });
   };
 
+  // ---------- PNG OBSTACLES ----------
+
   drawObstaclePart = function(x, y, width, height, isTop) {
-    const img = isTop
-      ? (ready(gateTop) ? gateTop : gateTopAlt)
-      : (ready(gateBottom) ? gateBottom : gateBottomAlt);
-    if (!ready(img) || height <= 0) return oldObstaclePart(x,y,width,height,isTop);
-    const capH = Math.min(82, Math.max(48, width * .9));
-    ctx.save();
+    if (height <= 0) return;
+
+    const useAlt = Math.floor(Math.abs(x) / 180) % 2 === 1;
+
+    let img;
+
     if (isTop) {
-      ctx.translate(x + width/2, y + height);
-      ctx.rotate(Math.PI);
-      ctx.drawImage(img, -width/2, 0, width, Math.max(height, capH));
+      img = useAlt ? gateTopAlt : gateTop;
+
+      if (!ready(img)) {
+        img = useAlt ? gateTop : gateTopAlt;
+      }
     } else {
-      ctx.drawImage(img, x - width*.25, y, width*1.5, Math.max(height, capH));
+      img = useAlt ? gateBottomAlt : gateBottom;
+
+      if (!ready(img)) {
+        img = useAlt ? gateBottom : gateBottomAlt;
+      }
     }
+
+    if (!ready(img)) {
+      originalObstaclePart(x, y, width, height, isTop);
+      return;
+    }
+
+    ctx.save();
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = "#24dfff";
+
+    ctx.drawImage(
+      img,
+      x - 10,
+      y,
+      width + 20,
+      height
+    );
+
     ctx.restore();
   };
 
-  // Replace emoji shop previews with the real bird artwork, tinted per skin.
-  const originalRenderShop = renderShop;
+  // ---------- SHOP PREVIEWS ----------
+
   renderShop = function() {
     originalRenderShop();
+
     const previews = document.querySelectorAll(".skin-preview");
+
     previews.forEach((el, i) => {
-      const img = frames.find(ready);
-      if (!img) return;
+      const img = birdFrames.find(ready);
+      const skin = SKINS[i];
+
+      if (!img || !skin) return;
+
       el.textContent = "";
+
       const pic = document.createElement("img");
       pic.src = img.src;
-      pic.alt = "SK " + (SKINS[i] ? SKINS[i].name : "costum");
-      pic.style.cssText = "width:100%;height:100%;object-fit:contain;filter:" +
-        (({red:"none",gold:"hue-rotate(28deg)",blue:"hue-rotate(185deg)",green:"hue-rotate(95deg)",purple:"hue-rotate(245deg)",flame:"hue-rotate(12deg)",ice:"hue-rotate(155deg)",pink:"hue-rotate(300deg)",shadow:"grayscale(.65)",neon:"hue-rotate(125deg)"})[SKINS[i].id] || "none");
+      pic.alt = skin.name;
+
+      pic.style.cssText =
+        "width:100%;height:100%;object-fit:contain;filter:" +
+        (skinFilters[skin.id] || "none");
+
       el.appendChild(pic);
     });
   };
+
+  // Refresh shop previews when the first bird image loads.
+  birdFrames[0].addEventListener("load", () => {
+    renderShop();
+  });
+
+  // Refresh the shop with the new previews.
   renderShop();
+
 })();
