@@ -1,6 +1,5 @@
-
 /* ============================================
-   SKAPADEN - COMPLETE EDITION
+   SKAPADEN - COMPLETE NEON EDITION
    Superhero Flappy Game
    ============================================ */
 
@@ -34,27 +33,6 @@ let missionProgress = read("skapaden_mission", 0);
 let missionClaimed = read("skapaden_mission_claimed", false);
 let lastDaily = read("skapaden_daily", "");
 
-function save() {
-  const data = {
-    coins,
-    gems,
-    best,
-    sound,
-    musicOn,
-    selectedSkin,
-    ownedSkins,
-    leaderboard,
-    missionProgress,
-    missionClaimed,
-    lastDaily
-  };
-
-  for (const [key, value] of Object.entries(data)) {
-    localStorage.setItem("skapaden_" + key.replace(/[A-Z]/g, m => "_" + m.toLowerCase()), JSON.stringify(value));
-  }
-}
-
-// Compatibilitate cu cheile vechi
 function saveAll() {
   localStorage.setItem("skapaden_coins", JSON.stringify(coins));
   localStorage.setItem("skapaden_gems", JSON.stringify(gems));
@@ -230,11 +208,15 @@ let state = "menu";
 let score = 0;
 let frame = 0;
 let lastTime = 0;
+let worldTime = 0;
 let speed = 3.5;
+
 let obstacles = [];
 let collectibles = [];
 let particles = [];
 let buildings = [];
+let birdTrail = [];
+let screenShake = 0;
 
 let bird = {
   x: 160,
@@ -249,11 +231,12 @@ let bird = {
 function createBuildings() {
   buildings = [];
 
-  for (let i = 0; i < 25; i++) {
+  for (let i = 0; i < 32; i++) {
     buildings.push({
-      x: i * 30,
-      h: 100 + Math.random() * 240,
-      w: 24 + Math.random() * 17
+      x: i * 24,
+      h: 100 + Math.random() * 260,
+      w: 20 + Math.random() * 18,
+      lights: Array.from({ length: 9 }, () => Math.random() > 0.35)
     });
   }
 }
@@ -262,130 +245,322 @@ createBuildings();
 
 function drawBackground() {
   const gradient = ctx.createLinearGradient(0, 0, 0, H);
-  gradient.addColorStop(0, "#09051f");
-  gradient.addColorStop(0.55, "#17104b");
+  gradient.addColorStop(0, "#050316");
+  gradient.addColorStop(0.35, "#111044");
+  gradient.addColorStop(0.7, "#25105b");
   gradient.addColorStop(1, "#080b20");
 
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, W, H);
 
-  // Moon
-  ctx.shadowBlur = 35;
+  // Aurora
+  ctx.save();
+  ctx.globalAlpha = 0.22;
+
+  for (let i = 0; i < 4; i++) {
+    const x = 100 + i * 150 + Math.sin(worldTime * 0.012 + i) * 45;
+
+    const aurora = ctx.createRadialGradient(
+      x, 210, 10,
+      x, 210, 190
+    );
+
+    aurora.addColorStop(0, i % 2 ? "#20eaff" : "#a12cff");
+    aurora.addColorStop(1, "transparent");
+
+    ctx.fillStyle = aurora;
+    ctx.fillRect(x - 200, 20, 400, 390);
+  }
+
+  ctx.restore();
+
+  // Moon glow
+  ctx.save();
+  ctx.shadowBlur = 45;
   ctx.shadowColor = "#a76aff";
-  ctx.fillStyle = "#c7a9ff";
+
+  const moonGradient = ctx.createRadialGradient(
+    475, 105, 3,
+    475, 105, 45
+  );
+
+  moonGradient.addColorStop(0, "#ffffff");
+  moonGradient.addColorStop(0.5, "#d7c2ff");
+  moonGradient.addColorStop(1, "#8b60d8");
+
+  ctx.fillStyle = moonGradient;
   ctx.beginPath();
   ctx.arc(475, 105, 36, 0, Math.PI * 2);
   ctx.fill();
-  ctx.shadowBlur = 0;
+
+  ctx.restore();
 
   // Stars
-  for (let i = 0; i < 75; i++) {
+  for (let i = 0; i < 100; i++) {
     const x = (i * 97) % W;
-    const y = (i * 53) % 330;
-    ctx.fillStyle = "rgba(255,255,255,0.7)";
-    ctx.fillRect(x, y, 2, 2);
+    const y = (i * 53) % 390;
+    const twinkle = 0.35 + Math.abs(Math.sin(worldTime * 0.04 + i)) * 0.65;
+
+    ctx.globalAlpha = twinkle;
+    ctx.fillStyle = i % 5 === 0 ? "#65eaff" : "#ffffff";
+
+    const size = i % 7 === 0 ? 3 : 1.7;
+    ctx.fillRect(x, y, size, size);
   }
 
-  // Buildings
+  ctx.globalAlpha = 1;
+
+  // Distant skyline
   buildings.forEach((b, i) => {
-    let x = (b.x - frame * 0.35) % 750;
-    if (x < -50) x += 750;
+    let x = (b.x - worldTime * 0.45) % 820;
+    if (x < -50) x += 820;
 
     const y = H - b.h;
 
-    ctx.fillStyle = "#11172e";
+    const buildingGradient = ctx.createLinearGradient(x, y, x + b.w, H);
+    buildingGradient.addColorStop(0, "#151735");
+    buildingGradient.addColorStop(1, "#080d20");
+
+    ctx.fillStyle = buildingGradient;
     ctx.fillRect(x, y, b.w, b.h);
 
-    ctx.fillStyle = "#30205c";
+    ctx.fillStyle = "#31205d";
     ctx.fillRect(x, y, b.w, 5);
 
-    for (let j = 0; j < 8; j++) {
-      const wy = y + 20 + j * 27;
+    for (let j = 0; j < b.lights.length; j++) {
+      if (!b.lights[j]) continue;
+
+      const wy = y + 18 + j * 25;
 
       if (wy < H - 20) {
         ctx.fillStyle = (i + j) % 2
-          ? "rgba(30,220,255,.7)"
-          : "rgba(160,70,255,.8)";
+          ? "rgba(30,220,255,.8)"
+          : "rgba(160,70,255,.85)";
 
-        ctx.fillRect(x + 5, wy, 5, 9);
-        ctx.fillRect(x + 16, wy, 5, 9);
+        ctx.fillRect(x + 4, wy, 4, 9);
+        ctx.fillRect(x + 13, wy, 4, 9);
       }
     }
   });
 
+  // Foreground skyline
+  for (let i = 0; i < 14; i++) {
+    const width = 48;
+    let x = (i * 52 - worldTime * 1.1) % 760;
+    if (x < -60) x += 760;
+
+    const height = 65 + (i * 47 % 130);
+    const y = H - 20 - height;
+
+    ctx.fillStyle = "#0b1028";
+    ctx.fillRect(x, y, width, height);
+
+    ctx.fillStyle = "#202653";
+    ctx.fillRect(x, y, width, 4);
+
+    for (let wy = y + 15; wy < H - 30; wy += 24) {
+      ctx.fillStyle = "#24dfff";
+      ctx.globalAlpha = 0.5 + Math.sin(worldTime * 0.04 + i) * 0.2;
+      ctx.fillRect(x + 8, wy, 5, 8);
+
+      ctx.fillStyle = "#a778ff";
+      ctx.fillRect(x + 27, wy, 5, 8);
+    }
+
+    ctx.globalAlpha = 1;
+  }
+
   // Ground
-  ctx.fillStyle = "#090d21";
+  ctx.fillStyle = "#080d21";
   ctx.fillRect(0, H - 20, W, 20);
-  ctx.fillStyle = "#22dfff";
+
+  ctx.shadowBlur = 15;
+  ctx.shadowColor = "#24dfff";
+  ctx.fillStyle = "#24dfff";
   ctx.fillRect(0, H - 20, W, 3);
+  ctx.shadowBlur = 0;
 }
 
 // ---------- BIRD ----------
 
 function drawBird() {
   const skin = currentSkin();
+  const wingMotion = Math.sin(worldTime * 0.38);
 
   ctx.save();
   ctx.translate(bird.x, bird.y);
   ctx.rotate(bird.rotation);
 
-  // Cape
-  ctx.fillStyle = skin.dark;
+  // Glow behind hero
+  ctx.save();
+  ctx.globalAlpha = 0.2;
+  ctx.shadowBlur = 30;
+  ctx.shadowColor = skin.light;
+  ctx.fillStyle = skin.body;
   ctx.beginPath();
-  ctx.moveTo(-12, 5);
-  ctx.lineTo(-52, 20 + Math.sin(frame * 0.18) * 8);
-  ctx.lineTo(-35, -15);
-  ctx.lineTo(-8, -10);
+  ctx.ellipse(-8, 0, 40, 27, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Hero trail
+  for (let i = 0; i < 5; i++) {
+    ctx.globalAlpha = 0.16 - i * 0.025;
+    ctx.fillStyle = skin.light;
+    ctx.beginPath();
+    ctx.ellipse(
+      -30 - i * 10,
+      4 + Math.sin(worldTime * 0.3 + i) * 4,
+      12 - i,
+      6 - i * 0.5,
+      0,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+  }
+
+  ctx.globalAlpha = 1;
+
+  // Cape
+  const capeWave = Math.sin(worldTime * 0.35) * 10;
+
+  const capeGradient = ctx.createLinearGradient(-55, -15, -5, 25);
+  capeGradient.addColorStop(0, skin.dark);
+  capeGradient.addColorStop(1, skin.body);
+
+  ctx.fillStyle = capeGradient;
+  ctx.beginPath();
+  ctx.moveTo(-13, -9);
+  ctx.lineTo(-34, -17);
+  ctx.lineTo(-58, 17 + capeWave);
+  ctx.lineTo(-30, 12);
+  ctx.lineTo(-10, 12);
+  ctx.closePath();
   ctx.fill();
 
   ctx.strokeStyle = skin.light;
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 2.5;
   ctx.beginPath();
-  ctx.moveTo(-13, 4);
-  ctx.lineTo(-43, 13 + Math.sin(frame * 0.18) * 8);
+  ctx.moveTo(-15, -5);
+  ctx.lineTo(-43, 8 + capeWave);
   ctx.stroke();
 
-  // Body
-  ctx.shadowBlur = 18;
-  ctx.shadowColor = skin.body;
-  ctx.fillStyle = skin.body;
+  // Back wing
+  ctx.save();
+  ctx.translate(-8, 7);
+  ctx.rotate(-0.35 + wingMotion * 0.12);
+
+  ctx.fillStyle = skin.dark;
   ctx.beginPath();
-  ctx.ellipse(0, 0, 26, 21, 0, 0, Math.PI * 2);
+  ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(-18, -23, -30, -12);
+  ctx.quadraticCurveTo(-24, 4, -5, 11);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+
+  // Body gradient
+  const bodyGradient = ctx.createLinearGradient(-15, -22, 20, 23);
+  bodyGradient.addColorStop(0, skin.light);
+  bodyGradient.addColorStop(0.45, skin.body);
+  bodyGradient.addColorStop(1, skin.dark);
+
+  ctx.shadowBlur = 20;
+  ctx.shadowColor = skin.body;
+  ctx.fillStyle = bodyGradient;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 27, 22, -0.08, 0, Math.PI * 2);
   ctx.fill();
   ctx.shadowBlur = 0;
 
-  // Wing
-  ctx.fillStyle = skin.wing;
+  // Belly shine
+  ctx.fillStyle = "rgba(255,255,255,.18)";
   ctx.beginPath();
-  ctx.ellipse(-8, 5 + Math.sin(frame * 0.35) * 5, 13, 9, -0.3, 0, Math.PI * 2);
+  ctx.ellipse(-5, -10, 12, 5, -0.25, 0, Math.PI * 2);
   ctx.fill();
 
-  // Eye
-  ctx.fillStyle = "white";
+  // Front wing
+  ctx.save();
+  ctx.translate(-9, 5);
+  ctx.rotate(-0.2 + wingMotion * 0.24);
+
+  ctx.fillStyle = skin.wing;
   ctx.beginPath();
-  ctx.arc(12, -8, 7, 0, Math.PI * 2);
+  ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(-8, -19, -24, -12);
+  ctx.quadraticCurveTo(-27, 4, -8, 12);
+  ctx.quadraticCurveTo(4, 10, 0, 0);
+  ctx.fill();
+
+  ctx.strokeStyle = skin.light;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-5, 3);
+  ctx.lineTo(-19, -5);
+  ctx.stroke();
+
+  ctx.restore();
+
+  // Chest badge
+  ctx.fillStyle = "rgba(255,255,255,.95)";
+  ctx.beginPath();
+  ctx.arc(0, 0, 10, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = skin.dark;
+  ctx.font = "900 10px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("SK", 0, 1);
+
+  // Eye
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.ellipse(14, -9, 8, 9, 0.15, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.fillStyle = "#101020";
   ctx.beginPath();
-  ctx.arc(14, -8, 3, 0, Math.PI * 2);
+  ctx.arc(17, -8, 3.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(18, -10, 1.3, 0, Math.PI * 2);
   ctx.fill();
 
   // Beak
-  ctx.fillStyle = "#ffb72b";
+  const beakGradient = ctx.createLinearGradient(22, 0, 42, 8);
+  beakGradient.addColorStop(0, "#ffe17a");
+  beakGradient.addColorStop(1, "#ff8c19");
+
+  ctx.fillStyle = beakGradient;
   ctx.beginPath();
-  ctx.moveTo(22, 0);
-  ctx.lineTo(39, 5);
-  ctx.lineTo(22, 10);
+  ctx.moveTo(22, -1);
+  ctx.quadraticCurveTo(34, -2, 42, 5);
+  ctx.quadraticCurveTo(33, 12, 22, 9);
+  ctx.closePath();
   ctx.fill();
 
-  // Emblem
-  ctx.fillStyle = "white";
-  ctx.font = "bold 11px Arial";
-  ctx.textAlign = "center";
-  ctx.fillText("SK", -2, -3);
+  ctx.strokeStyle = "#a84b12";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(24, 5);
+  ctx.lineTo(39, 5);
+  ctx.stroke();
+
+  // Small hero crest
+  ctx.fillStyle = skin.wing;
+  ctx.beginPath();
+  ctx.moveTo(-6, -19);
+  ctx.lineTo(1, -30);
+  ctx.lineTo(7, -18);
+  ctx.closePath();
+  ctx.fill();
 
   ctx.restore();
+  ctx.globalAlpha = 1;
 }
 
 // ---------- OBSTACLES ----------
@@ -416,42 +591,85 @@ function createObstacle() {
 function drawObstaclePart(x, y, width, height, isTop) {
   if (height <= 0) return;
 
+  // Metallic pipe body
   const gradient = ctx.createLinearGradient(x, 0, x + width, 0);
-  gradient.addColorStop(0, "#101522");
-  gradient.addColorStop(0.5, "#394056");
-  gradient.addColorStop(1, "#101522");
+  gradient.addColorStop(0, "#080e20");
+  gradient.addColorStop(0.16, "#29324b");
+  gradient.addColorStop(0.42, "#56617a");
+  gradient.addColorStop(0.55, "#202941");
+  gradient.addColorStop(0.82, "#303b55");
+  gradient.addColorStop(1, "#080e20");
 
   ctx.fillStyle = gradient;
   ctx.fillRect(x, y, width, height);
 
-  ctx.fillStyle = "#222a3e";
-  ctx.fillRect(x + 9, y, 10, height);
-  ctx.fillRect(x + width - 19, y, 10, height);
+  // Dark side panels
+  ctx.fillStyle = "rgba(0,0,0,.35)";
+  ctx.fillRect(x + 7, y, 8, height);
+  ctx.fillRect(x + width - 15, y, 8, height);
 
-  ctx.shadowBlur = 15;
-  ctx.shadowColor = "#8d36ff";
-  ctx.fillStyle = "#a34cff";
-  ctx.fillRect(x + 25, y, 5, height);
-  ctx.shadowBlur = 0;
+  // Neon purple strip
+  ctx.save();
+  ctx.shadowBlur = 16;
+  ctx.shadowColor = "#a238ff";
+  ctx.fillStyle = "#a238ff";
+  ctx.fillRect(x + 25, y, 4, height);
+  ctx.restore();
 
-  ctx.shadowBlur = 15;
+  // Neon cyan strip
+  ctx.save();
+  ctx.shadowBlur = 16;
   ctx.shadowColor = "#24dfff";
   ctx.fillStyle = "#24dfff";
   ctx.fillRect(x + 65, y, 4, height);
-  ctx.shadowBlur = 0;
+  ctx.restore();
 
-  ctx.fillStyle = "#505b73";
+  // Metallic reflection
+  ctx.fillStyle = "rgba(255,255,255,.15)";
+  ctx.fillRect(x + 17, y, 2, height);
+
+  // Tech details
   for (let sy = y + 35; sy < y + height; sy += 75) {
-    ctx.fillRect(x - 6, sy, width + 12, 7);
+    ctx.fillStyle = "#66718a";
+    ctx.fillRect(x - 5, sy, width + 10, 7);
+
+    ctx.fillStyle = "#151b30";
+    ctx.fillRect(x - 5, sy + 7, width + 10, 3);
+
+    ctx.fillStyle = "#24dfff";
+    ctx.fillRect(x + 7, sy + 2, 5, 3);
+    ctx.fillRect(x + width - 12, sy + 2, 5, 3);
   }
 
-  const edgeY = isTop ? y + height - 17 : y;
+  // Pipe end cap
+  const edgeY = isTop ? y + height - 18 : y;
 
-  ctx.fillStyle = "#11182b";
+  const capGradient = ctx.createLinearGradient(
+    x - 9, edgeY,
+    x + width + 9, edgeY + 20
+  );
+
+  capGradient.addColorStop(0, "#121a30");
+  capGradient.addColorStop(0.5, "#69738c");
+  capGradient.addColorStop(1, "#11172b");
+
+  ctx.fillStyle = capGradient;
   ctx.fillRect(x - 9, edgeY, width + 18, 20);
 
   ctx.fillStyle = "#24dfff";
+  ctx.shadowBlur = 12;
+  ctx.shadowColor = "#24dfff";
   ctx.fillRect(x - 9, isTop ? edgeY + 16 : edgeY, width + 18, 4);
+  ctx.shadowBlur = 0;
+
+  // Small bolts
+  ctx.fillStyle = "#d2e4ff";
+
+  for (let bx = x + 5; bx < x + width - 5; bx += 20) {
+    ctx.beginPath();
+    ctx.arc(bx, edgeY + 9, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 function drawObstacles() {
@@ -478,9 +696,15 @@ function drawCollectibles() {
     ctx.scale(Math.max(0.15, Math.abs(Math.cos(item.rotation))), 1);
 
     if (item.type === "coin") {
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = 18;
       ctx.shadowColor = "#ffd83d";
-      ctx.fillStyle = "#ffcf35";
+
+      const coinGradient = ctx.createRadialGradient(-4, -5, 2, 0, 0, 15);
+      coinGradient.addColorStop(0, "#fff5a5");
+      coinGradient.addColorStop(0.5, "#ffcf35");
+      coinGradient.addColorStop(1, "#c87900");
+
+      ctx.fillStyle = coinGradient;
       ctx.beginPath();
       ctx.arc(0, 0, 13, 0, Math.PI * 2);
       ctx.fill();
@@ -494,9 +718,15 @@ function drawCollectibles() {
       ctx.textAlign = "center";
       ctx.fillText("$", 0, 5);
     } else {
-      ctx.shadowBlur = 18;
+      ctx.shadowBlur = 20;
       ctx.shadowColor = "#28dfff";
-      ctx.fillStyle = "#35eaff";
+
+      const gemGradient = ctx.createLinearGradient(-10, -15, 10, 15);
+      gemGradient.addColorStop(0, "#ffffff");
+      gemGradient.addColorStop(0.4, "#35eaff");
+      gemGradient.addColorStop(1, "#0879e8");
+
+      ctx.fillStyle = gemGradient;
       ctx.beginPath();
       ctx.moveTo(0, -17);
       ctx.lineTo(13, -3);
@@ -538,7 +768,12 @@ function collect(item) {
     playTone(900, 0.5, 0.1);
   }
 
-  createParticles(item.x, item.y, item.type === "coin" ? "#ffda42" : "#35eaff");
+  createParticles(
+    item.x,
+    item.y,
+    item.type === "coin" ? "#ffda42" : "#35eaff"
+  );
+
   saveAll();
   hud();
 }
@@ -786,6 +1021,7 @@ leaderboardMenuButton.style.cssText = `
   background:#25134c;color:white;border:1px solid #a778ff;
   border-radius:12px;padding:10px;font-weight:bold;
 `;
+
 $("shop").insertAdjacentElement("afterend", leaderboardMenuButton);
 leaderboardMenuButton.addEventListener("click", showLeaderboard);
 
@@ -843,6 +1079,8 @@ function gameOver() {
   stopMusic();
   explosionSound();
 
+  screenShake = 12;
+
   if (score > best) best = score;
 
   addLeaderboardScore(score);
@@ -885,6 +1123,7 @@ function resetGame() {
   obstacles = [];
   collectibles = [];
   particles = [];
+  birdTrail = [];
 
   bird.x = 160;
   bird.y = H / 2;
@@ -892,6 +1131,7 @@ function resetGame() {
   bird.rotation = 0;
 
   frame = 0;
+  screenShake = 0;
 }
 
 function startGame() {
@@ -958,6 +1198,7 @@ document.addEventListener("keydown", event => {
       flap();
     } else if (state === "paused") {
       state = "playing";
+      $("message").textContent = "Atinge ecranul pentru a zbura!";
       startMusic();
     }
   }
@@ -965,6 +1206,7 @@ document.addEventListener("keydown", event => {
   if (event.code === "Escape" && state === "playing") {
     state = "paused";
     stopMusic();
+    $("message").textContent = "⏸ JOCUL ESTE ÎN PAUZĂ";
   }
 });
 
@@ -973,11 +1215,26 @@ document.addEventListener("keydown", event => {
 function update(dt) {
   if (state !== "playing") return;
 
+  worldTime += dt;
   frame += dt;
 
   bird.velocity += 0.32 * dt;
   bird.y += bird.velocity * dt;
   bird.rotation = Math.min(0.8, Math.max(-0.5, bird.velocity * 0.08));
+
+  // Trail behind the hero
+  birdTrail.push({
+    x: bird.x - 20,
+    y: bird.y,
+    life: 18
+  });
+
+  birdTrail.forEach(p => {
+    p.x -= speed * 0.4 * dt;
+    p.life -= dt;
+  });
+
+  birdTrail = birdTrail.filter(p => p.life > 0);
 
   if (frame >= 100) {
     createObstacle();
@@ -1014,24 +1271,60 @@ function update(dt) {
 
   particles = particles.filter(p => p.life > 0);
 
+  if (screenShake > 0) {
+    screenShake = Math.max(0, screenShake - dt);
+  }
+
   if (hitObstacle()) gameOver();
 }
 
 // ---------- DRAW ----------
 
+function drawTrail() {
+  const skin = currentSkin();
+
+  birdTrail.forEach(p => {
+    ctx.globalAlpha = Math.max(0, p.life / 18) * 0.35;
+    ctx.fillStyle = skin.light;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 5 * (p.life / 18), 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.globalAlpha = 1;
+}
+
 function drawHUD() {
-  ctx.fillStyle = "rgba(8,5,30,.72)";
-  ctx.fillRect(15, 15, 180, 65);
+  ctx.save();
+
+  ctx.fillStyle = "rgba(8,5,30,.78)";
+  ctx.strokeStyle = "rgba(36,223,255,.7)";
+  ctx.lineWidth = 2;
+
+  ctx.beginPath();
+  ctx.roundRect(15, 15, 180, 65, 12);
+  ctx.fill();
+  ctx.stroke();
 
   ctx.fillStyle = "#ffe36a";
   ctx.font = "bold 27px Arial";
   ctx.textAlign = "left";
   ctx.fillText("SCOR: " + score, 28, 55);
+
+  ctx.restore();
 }
 
 function drawMenu() {
-  ctx.fillStyle = "rgba(8,5,30,.72)";
-  ctx.fillRect(40, 245, 520, 250);
+  ctx.save();
+
+  ctx.fillStyle = "rgba(8,5,30,.78)";
+  ctx.strokeStyle = "#a778ff";
+  ctx.lineWidth = 2;
+
+  ctx.beginPath();
+  ctx.roundRect(40, 245, 520, 250, 24);
+  ctx.fill();
+  ctx.stroke();
 
   ctx.textAlign = "center";
   ctx.shadowBlur = 22;
@@ -1052,6 +1345,8 @@ function drawMenu() {
   ctx.fillStyle = "white";
   ctx.font = "16px Arial";
   ctx.fillText("Evită obstacolele și colectează monede!", W / 2, 460);
+
+  ctx.restore();
 }
 
 function drawPaused() {
@@ -1068,15 +1363,27 @@ function drawPaused() {
 }
 
 function render() {
+  ctx.save();
+
+  if (screenShake > 0) {
+    ctx.translate(
+      (Math.random() - 0.5) * screenShake,
+      (Math.random() - 0.5) * screenShake
+    );
+  }
+
   drawBackground();
   drawObstacles();
   drawCollectibles();
   drawParticles();
+  drawTrail();
   drawBird();
   drawHUD();
 
   if (state === "menu") drawMenu();
   if (state === "paused") drawPaused();
+
+  ctx.restore();
 }
 
 // ---------- MAIN LOOP ----------
