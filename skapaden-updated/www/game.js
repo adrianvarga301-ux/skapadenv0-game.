@@ -1,3 +1,4 @@
+
 (()=>{
 "use strict";
 
@@ -7,243 +8,166 @@ if(!canvas)return;
 
 const ctx=canvas.getContext("2d");
 const W=600,H=760;
-let state="menu",frame=0,score=0,best=0;
-let coins=[],gems=[],obstacles=[],particles=[];
-let bird={x:150,y:350,vy:0,rot:0,wing:0};
-let totalCoins=0,totalGems=0,shake=0,flash=0;
-let bankCoins=0,bankGems=0;
-let sound=true,audio=null,musicTimer=null,musicStep=0;
-let missionCoins=0,dailyClaim="",missionClaim="";
-let ownedSkins=["classic"],activeSkin="classic";
-
-const KEY="skapaden_save_v1";
+const SAVE_KEY="skapaden_superhero_v2";
 
 const SKINS=[
-{id:"classic",name:"ROȘU SK",cost:0,body:"#f20b42",wing:"#ff4778",dark:"#9d082f",light:"#ffb4c8"},
-{id:"gold",name:"AURIU",cost:250,body:"#ffad08",wing:"#ffe15a",dark:"#a95700",light:"#fff2a0"},
-{id:"ocean",name:"OCEAN",cost:350,body:"#008fd7",wing:"#42dcff",dark:"#034a91",light:"#a5f4ff"},
-{id:"mint",name:"MENTĂ",cost:450,body:"#00b987",wing:"#62ffd0",dark:"#00694e",light:"#baffdf"},
-{id:"royal",name:"REGAL",cost:600,body:"#7135e8",wing:"#b28aff",dark:"#351078",light:"#e2caff"},
-{id:"flame",name:"FLACĂRĂ",cost:750,body:"#f04b12",wing:"#ffad35",dark:"#8d2107",light:"#ffe0a1"},
-{id:"ice",name:"GHEAȚĂ",cost:900,body:"#55cdec",wing:"#d8fbff",dark:"#24718f",light:"#ffffff"},
-{id:"rose",name:"ROZ",cost:1100,body:"#ed399b",wing:"#ff9bd5",dark:"#87205b",light:"#ffd5ec"},
-{id:"shadow",name:"UMBRĂ",cost:1400,body:"#34364d",wing:"#8589b2",dark:"#111322",light:"#d4d7ff"},
-{id:"neon",name:"NEON",cost:1800,body:"#8be000",wing:"#d9ff48",dark:"#426900",light:"#f4ffae"}
+{id:"red",name:"ROȘU SK",cost:0,body:"#ed123d",wing:"#ff4d64",dark:"#4b071c",light:"#ffd2d8",mask:"#15152d"},
+{id:"gold",name:"AURIU",cost:250,body:"#ffb900",wing:"#ffe95a",dark:"#713600",light:"#fff4b0",mask:"#17152c"},
+{id:"blue",name:"OCEAN",cost:350,body:"#087eea",wing:"#45dfff",dark:"#06245e",light:"#c9f7ff",mask:"#10172e"},
+{id:"green",name:"MENTĂ",cost:450,body:"#00bd83",wing:"#70ffd0",dark:"#004c43",light:"#c8ffe9",mask:"#102b2c"},
+{id:"purple",name:"REGAL",cost:600,body:"#8138ed",wing:"#c69aff",dark:"#310b72",light:"#f0ddff",mask:"#17112e"},
+{id:"flame",name:"FLĂCĂRI",cost:750,body:"#f04b13",wing:"#ffb22e",dark:"#702006",light:"#ffe1a0",mask:"#25101b"},
+{id:"ice",name:"GHEAȚĂ",cost:900,body:"#62dff5",wing:"#e2ffff",dark:"#17678c",light:"#ffffff",mask:"#14283e"},
+{id:"pink",name:"ROZ",cost:1100,body:"#ed399b",wing:"#ff9bd5",dark:"#741044",light:"#ffe0f1",mask:"#28102c"},
+{id:"shadow",name:"UMBRĂ",cost:1400,body:"#34364d",wing:"#a3a8d8",dark:"#090b1a",light:"#e1e5ff",mask:"#050610"},
+{id:"neon",name:"NEON",cost:1800,body:"#a5ec00",wing:"#e6ff57",dark:"#3d5800",light:"#f8ffc4",mask:"#17200b"}
 ];
+
+let saved={};
+try{saved=JSON.parse(localStorage.getItem(SAVE_KEY)||"{}")}catch(e){}
+
+let coins=Number(saved.coins)||0;
+let gems=Number(saved.gems)||0;
+let best=Number(saved.best)||0;
+let sound=saved.sound!==false;
+let owned=Array.isArray(saved.owned)?saved.owned:["red"];
+if(!owned.includes("red"))owned.push("red");
+let active=SKINS.some(s=>s.id===saved.active&&owned.includes(s.id))?saved.active:"red";
+let daily=saved.daily||"";
+let mission=saved.mission||"";
+let missionCount=Number(saved.missionCount)||0;
+
+let state="menu";
+let score=0,frame=0;
+let bird={x:155,y:350,vy:0,rot:0};
+let pipes=[],loot=[],particles=[];
+let shake=0,audio=null,musicTimer=null,musicStep=0;
 
 const today=()=>new Date().toLocaleDateString("en-CA");
 
-try{
- const s=JSON.parse(localStorage.getItem(KEY)||"{}");
- best=Number(s.best)||0;
- bankCoins=Number(s.coins)||0;
- bankGems=Number(s.gems)||0;
- sound=s.sound!==false;
- ownedSkins=Array.isArray(s.ownedSkins)?s.ownedSkins:["classic"];
- if(!ownedSkins.includes("classic"))ownedSkins.unshift("classic");
- activeSkin=ownedSkins.includes(s.activeSkin)?s.activeSkin:"classic";
- missionCoins=Number(s.missionCoins)||0;
- dailyClaim=s.dailyClaim||"";
- missionClaim=s.missionClaim||"";
-}catch(e){console.log(e);}
-
 function save(){
  try{
-  localStorage.setItem(KEY,JSON.stringify({
-   best,coins:bankCoins,gems:bankGems,sound,
-   ownedSkins,activeSkin,missionCoins,dailyClaim,missionClaim
+  localStorage.setItem(SAVE_KEY,JSON.stringify({
+   coins,gems,best,sound,owned,active,daily,mission,missionCount
   }));
  }catch(e){}
 }
 
-function text(id,value){
- const el=$(id);
- if(el)el.textContent=value;
+function hud(){
+ $("coins").textContent=coins;
+ $("gems").textContent=gems;
+ $("best").textContent=best;
+ $("sound").textContent=sound?"🔊 ON":"🔇 OFF";
 }
 
-function audioReady(){
- if(!sound)return null;
+function audioOn(){
+ if(!sound)return;
  try{
   audio=audio||new(window.AudioContext||window.webkitAudioContext)();
   if(audio.state==="suspended")audio.resume();
-  return audio;
- }catch(e){return null;}
+ }catch(e){}
 }
 
-function tone(freq=650,dur=.2,type="sine",vol=.12,delay=0){
- const a=audioReady();
- if(!a)return;
- const o=a.createOscillator();
- const g=a.createGain();
- const t=a.currentTime+delay;
- o.type=type;
- o.frequency.setValueAtTime(freq,t);
- g.gain.setValueAtTime(.001,t);
- g.gain.exponentialRampToValueAtTime(vol,t+.025);
- g.gain.exponentialRampToValueAtTime(.001,t+dur);
- o.connect(g);
- g.connect(a.destination);
- o.start(t);
- o.stop(t+dur+.03);
+function beep(freq=600,duration=.12,volume=.09,type="sine",delay=0){
+ audioOn();
+ if(!audio||!sound)return;
+ const osc=audio.createOscillator();
+ const gain=audio.createGain();
+ const t=audio.currentTime+delay;
+ osc.type=type;
+ osc.frequency.setValueAtTime(freq,t);
+ gain.gain.setValueAtTime(.001,t);
+ gain.gain.exponentialRampToValueAtTime(volume,t+.02);
+ gain.gain.exponentialRampToValueAtTime(.001,t+duration);
+ osc.connect(gain);
+ gain.connect(audio.destination);
+ osc.start(t);
+ osc.stop(t+duration+.03);
 }
 
-function startMusic(){
- if(!sound||musicTimer)return;
- audioReady();
+function musicOn(){
+ if(musicTimer||!sound)return;
+ audioOn();
+ const notes=[523,659,784,659,587,698,880,698,523,659,784,988];
  musicStep=0;
- const notes=[523,659,784,659,587,698,880,698,523,659,784,988,880,784,659,587];
  musicTimer=setInterval(()=>{
-  if(!sound||state!=="play")return;
-  const n=notes[musicStep++%notes.length];
-  tone(n,.22,"triangle",.075);
-  if(musicStep%2===0)tone(n/2,.3,"sine",.045);
+  if(state!=="play"||!sound)return;
+  beep(notes[musicStep++%notes.length],.18,.035,"triangle");
  },260);
 }
 
-function stopMusic(){
- if(musicTimer){
-  clearInterval(musicTimer);
-  musicTimer=null;
- }
+function musicOff(){
+ if(musicTimer)clearInterval(musicTimer);
+ musicTimer=null;
 }
 
-function update(){
- text("coins",bankCoins);
- text("gems",bankGems);
- text("score",score);
- text("sound",sound?"🔊 ON":"🔇 OFF");
- text("missionProgress",Math.min(missionCoins,20)+"/20");
+function addPipe(px){
+ const gap=218;
+ const top=100+Math.random()*255;
+ pipes.push({x:px,top,gap,passed:false});
 }
 
-function rounded(x,y,w,h,r,color,stroke="#160b42",lw=6){
- ctx.beginPath();
- ctx.roundRect(x,y,w,h,r);
- ctx.fillStyle=color;
- ctx.fill();
- if(stroke){
-  ctx.lineWidth=lw;
-  ctx.strokeStyle=stroke;
-  ctx.stroke();
- }
-}
-
-function obstacle(px){
- const gap=218+Math.random()*20;
- const top=100+Math.random()*250;
- obstacles.push({x:px,top,gap,passed:false});
-}
-
-function reset(){
- stopMusic();
- bird={x:150,y:350,vy:0,rot:0,wing:0};
- coins=[];
- gems=[];
- obstacles=[];
- particles=[];
- score=0;
- totalCoins=0;
- totalGems=0;
- frame=0;
- shake=0;
- flash=0;
-
- for(let i=0;i<3;i++)obstacle(650+i*300);
-
+function startGame(){
+ audioOn();
+ musicOff();
  state="play";
- update();
- text("message","🐦 ZBOARĂ ȘI COLECTEAZĂ!");
- audioReady();
- startMusic();
- tone(660,.15,"triangle",.12);
+ score=0;
+ frame=0;
+ pipes=[];
+ loot=[];
+ particles=[];
+ bird={x:155,y:350,vy:0,rot:0};
+ for(let i=0;i<3;i++)addPipe(680+i*300);
+ hud();
+ $("message").textContent="ZBOARĂ! COLECTEAZĂ MONEDE ȘI DIAMANTE!";
+ musicOn();
+ beep(700,.14,.1,"triangle");
 }
 
 function flap(){
  if(state==="menu"||state==="over"){
-  reset();
+  startGame();
   return;
  }
  if(state!=="play")return;
-
- bird.vy=-7.2;
- tone(440,.09,"triangle",.09);
-
- for(let i=0;i<6;i++){
+ bird.vy=-7.4;
+ beep(430,.07,.055,"triangle");
+ for(let i=0;i<5;i++){
   particles.push({
-   x:bird.x-25,y:bird.y+8,
+   x:bird.x-20,y:bird.y,
    vx:-Math.random()*3,
-   vy:Math.random()*3-1.5,
-   life:20,color:"#ff9bcf",size:5
+   vy:Math.random()*3-1,
+   life:20,color:"#ff8cb6",r:4
   });
  }
 }
 
-function collect(arr,kind){
- for(let i=arr.length-1;i>=0;i--){
-  const a=arr[i];
-  a.x-=3.4+Math.min(score*.025,3);
-
-  if(Math.hypot(a.x-bird.x,a.y-bird.y)<35){
-   if(kind==="coin"){
-    totalCoins++;
-    bankCoins++;
-    missionCoins++;
-    tone(900,.12,"sine",.13);
-    tone(1250,.12,"sine",.09,.08);
-   }else{
-    totalGems++;
-    bankGems++;
-    tone(1250,.17,"sine",.14);
-    tone(1650,.13,"sine",.10,.08);
-   }
-
-   for(let n=0;n<12;n++){
-    particles.push({
-     x:a.x,y:a.y,
-     vx:(Math.random()-.5)*6,
-     vy:(Math.random()-.5)*6,
-     life:25,
-     color:kind==="coin"?"#ffe16b":"#75efff",
-     size:5
-    });
-   }
-
-   arr.splice(i,1);
-   save();
-   update();
-   continue;
-  }
-
-  if(a.x<-40)arr.splice(i,1);
- }
-}
-
-function explode(){
- if(state!=="play")return;
-
- state="over";
- stopMusic();
- best=Math.max(best,score);
- save();
- shake=18;
- flash=15;
-
- for(let i=0;i<65;i++){
+function burst(color,count=12){
+ for(let i=0;i<count;i++){
   const a=Math.random()*Math.PI*2;
-  const s=1+Math.random()*8;
+  const speed=1+Math.random()*6;
   particles.push({
    x:bird.x,y:bird.y,
-   vx:Math.cos(a)*s,
-   vy:Math.sin(a)*s,
-   life:35+Math.random()*25,
-   color:["#ff315e","#ffb52e","#fff36a","#ff6b25","#ffffff"][i%5],
-   size:4+Math.random()*7
+   vx:Math.cos(a)*speed,
+   vy:Math.sin(a)*speed,
+   life:25+Math.random()*25,
+   color,r:2+Math.random()*5
   });
  }
+}
 
- tone(150,.35,"sawtooth",.16);
- tone(85,.45,"square",.12,.08);
- tone(55,.5,"sawtooth",.08,.16);
- text("message","💥 BOOM! Încearcă din nou!");
+function die(){
+ if(state!=="play")return;
+ state="over";
+ best=Math.max(best,score);
+ save();
+ musicOff();
+ shake=16;
+ burst("#ffb32e",65);
+ burst("#ff245d",40);
+ beep(110,.4,.13,"sawtooth");
+ $("message").textContent="💥 BOOM! Apasă REVINO pentru încă o rundă!";
+ hud();
 }
 
 function tick(){
@@ -252,652 +176,559 @@ function tick(){
  frame++;
  bird.vy+=.34;
  bird.y+=bird.vy;
- bird.rot=Math.max(-.45,Math.min(.9,bird.vy*.075));
- bird.wing+=.25;
+ bird.rot=Math.max(-.5,Math.min(.9,bird.vy*.07));
 
- const speed=3.4+Math.min(score*.025,3);
+ const speed=3.5+Math.min(score*.02,2.5);
 
- obstacles.forEach(o=>{
-  o.x-=speed;
-  if(!o.passed&&o.x+72<bird.x){
-   o.passed=true;
+ pipes.forEach(p=>{
+  p.x-=speed;
+  if(!p.passed&&p.x+72<bird.x){
+   p.passed=true;
    score++;
-   update();
-   tone(550,.08,"triangle",.07);
+   beep(560,.06,.035);
   }
  });
 
- obstacles=obstacles.filter(o=>o.x>-110);
+ pipes=pipes.filter(p=>p.x>-100);
 
- if(obstacles.length<3){
-  const last=obstacles.length?Math.max(...obstacles.map(z=>z.x)):W;
-  obstacle(last+300+Math.random()*60);
+ if(pipes.length<3){
+  const last=pipes.length?Math.max(...pipes.map(p=>p.x)):600;
+  addPipe(last+300);
  }
 
- if(frame%88===0){
-  const o=obstacles.find(z=>z.x>bird.x+30&&z.x<bird.x+330);
-  coins.push({
+ if(frame%85===0){
+  const p=pipes.find(p=>p.x>bird.x+20);
+  loot.push({
    x:620,
-   y:o?o.top+o.gap*.5+(Math.random()-.5)*60:300+Math.random()*150,
-   spin:0
+   y:p?p.top+p.gap/2:250+Math.random()*250,
+   type:"coin",spin:0
   });
  }
 
- if(frame%270===0){
-  gems.push({x:620,y:160+Math.random()*420,spin:0});
+ if(frame%260===0){
+  loot.push({
+   x:620,y:160+Math.random()*400,
+   type:"gem",spin:0
+  });
  }
 
- coins.forEach(a=>a.spin+=.12);
- gems.forEach(a=>a.spin+=.08);
+ loot.forEach(a=>{
+  a.x-=speed;
+  a.spin+=.12;
 
- collect(coins,"coin");
- collect(gems,"gem");
+  if(Math.hypot(a.x-bird.x,a.y-bird.y)<34){
+   if(a.type==="coin"){
+    coins++;
+    missionCount++;
+    beep(950,.1,.1);
+    beep(1300,.12,.07,"sine",.08);
+   }else{
+    gems++;
+    beep(1300,.16,.12);
+    beep(1700,.12,.07,"sine",.08);
+   }
 
- for(const o of obstacles){
+   burst(a.type==="coin"?"#ffe05b":"#5cf3ff",10);
+   a.dead=true;
+   save();
+   hud();
+  }
+ });
+
+ loot=loot.filter(a=>!a.dead&&a.x>-40);
+
+ for(const p of pipes){
   if(
-   bird.x+22>o.x&&bird.x-22<o.x+72&&
-   (bird.y-16<o.top||bird.y+16>o.top+o.gap)
+   bird.x+23>p.x&&bird.x-23<p.x+72&&
+   (bird.y-18<p.top||bird.y+18>p.top+p.gap)
   ){
-   explode();
+   die();
    break;
   }
  }
 
- if(bird.y<18||bird.y>H-25)explode();
+ if(bird.y<15||bird.y>H-20)die();
 
  particles.forEach(p=>{
   p.x+=p.vx;
   p.y+=p.vy;
-  p.vy+=.08;
+  p.vy+=.07;
   p.life--;
  });
 
  particles=particles.filter(p=>p.life>0);
 }
 
-function sky(){
+function background(){
  const g=ctx.createLinearGradient(0,0,0,H);
- g.addColorStop(0,"#087df0");
- g.addColorStop(.55,"#55c8ff");
- g.addColorStop(1,"#ff9acb");
+ g.addColorStop(0,"#086ef0");
+ g.addColorStop(.65,"#2c9eff");
+ g.addColorStop(1,"#f16db7");
  ctx.fillStyle=g;
  ctx.fillRect(0,0,W,H);
 
- for(let i=0;i<5;i++){
-  const xx=(i*155-frame*.18%760+760)%760-80;
-  const yy=85+(i%3)*75;
-  ctx.fillStyle="#ffffff75";
-  ctx.beginPath();
-  ctx.ellipse(xx,yy,35,12,0,0,Math.PI*2);
-  ctx.ellipse(xx+25,yy-8,27,16,0,0,Math.PI*2);
-  ctx.ellipse(xx+48,yy,30,11,0,0,Math.PI*2);
-  ctx.fill();
- }
-}
+ for(let i=0;i<12;i++){
+  const xx=((i*83-frame*.3)%850+850)%850-100;
+  const h=120+(i*57%260);
+  ctx.fillStyle=i%2?"#17174b":"#29205e";
+  ctx.fillRect(xx,H-h,55,h);
 
-function city(){
- sky();
-
- for(let layer=0;layer<2;layer++){
-  const speed=layer?.38:.2;
-  const base=H-20;
-
-  for(let i=0;i<12;i++){
-   const bw=48+(i%3)*12;
-   const xx=((i*75-frame*speed)%900+900)%900-140;
-   const hh=(layer?170:105)+(i*47%180);
-
-   ctx.fillStyle=layer?"#30265f":"#493777";
-   ctx.fillRect(xx,base-hh,bw,hh);
-   ctx.fillStyle="#17143d";
-   ctx.fillRect(xx,base-hh,bw,7);
-
-   for(let yy=base-hh+18;yy<base-12;yy+=29){
-    for(let wx=xx+9;wx<xx+bw-8;wx+=19){
-     ctx.fillStyle=((i+Math.floor(yy/29))%3===0)?"#ffe078":"#9edbff";
-     ctx.fillRect(wx,yy,9,13);
-    }
-   }
+  for(let yy=H-h+20;yy<H-15;yy+=32){
+   ctx.fillStyle="#ffd56b";
+   ctx.fillRect(xx+10,yy,10,14);
+   ctx.fillRect(xx+32,yy,10,14);
   }
  }
-
- ctx.fillStyle="#17143d";
- ctx.fillRect(0,H-18,W,18);
 }
 
-function drawBird(b){
- ctx.save();
- ctx.translate(b.x,b.y);
- ctx.rotate(b.rot||0);
+function drawBird(g,b,skinId=active){
+ const s=SKINS.find(q=>q.id===skinId)||SKINS[0];
+ g.save();
+ g.translate(b.x,b.y);
+ g.rotate(b.rot||0);
+ g.shadowColor=s.body;
+ g.shadowBlur=18;
 
- const s=SKINS.find(k=>k.id===activeSkin)||SKINS[0];
- const wy=Math.sin((b.wing||frame)*.22)*8;
-
- ctx.shadowColor=s.body;
- ctx.shadowBlur=20;
-
- for(let i=0;i<3;i++){
-  ctx.fillStyle=i===1?s.wing:s.dark;
-  ctx.beginPath();
-  ctx.moveTo(-18,8+i*5);
-  ctx.quadraticCurveTo(-48,-7+i*13,-67,-27+i*20);
-  ctx.quadraticCurveTo(-52,13+i*8,-22,25+i*3);
-  ctx.fill();
+ // Pene țepoase din spate
+ for(let i=0;i<5;i++){
+  g.fillStyle=i%2?s.wing:s.dark;
+  g.beginPath();
+  g.moveTo(-14,5+i*3);
+  g.lineTo(-54-i*3,-32+i*12);
+  g.lineTo(-40,-5+i*10);
+  g.lineTo(-65,-8+i*13);
+  g.lineTo(-25,22+i*2);
+  g.closePath();
+  g.fill();
  }
 
- ctx.fillStyle=s.dark;
- ctx.beginPath();
- ctx.moveTo(-22,4);
- ctx.quadraticCurveTo(-58,-28-wy,-58,-58-wy);
- ctx.quadraticCurveTo(-35,-48-wy,-27,-32);
- ctx.quadraticCurveTo(-23,-58-wy,-7,-62-wy);
- ctx.quadraticCurveTo(3,-30,-2,9);
- ctx.fill();
+ // Corp lucios
+ let grad=g.createLinearGradient(-25,-25,28,30);
+ grad.addColorStop(0,s.light);
+ grad.addColorStop(.4,s.body);
+ grad.addColorStop(1,s.dark);
+ g.fillStyle=grad;
+ g.beginPath();
+ g.ellipse(0,8,35,25,-.15,0,Math.PI*2);
+ g.fill();
+ g.beginPath();
+ g.ellipse(18,-10,27,26,-.15,0,Math.PI*2);
+ g.fill();
 
- ctx.fillStyle=s.wing;
- ctx.beginPath();
- ctx.moveTo(-22,2);
- ctx.quadraticCurveTo(-54,-29-wy,-47,-48-wy);
- ctx.quadraticCurveTo(-28,-43-wy,-19,-24);
- ctx.quadraticCurveTo(-10,-48-wy,4,-47-wy);
- ctx.quadraticCurveTo(8,-17,-3,8);
- ctx.closePath();
- ctx.fill();
+ // Creastă de pene
+ for(let i=0;i<4;i++){
+  g.fillStyle=i%2?s.wing:s.body;
+  g.beginPath();
+  g.moveTo(-12+i*10,-25);
+  g.lineTo(-29+i*12,-58-(i%2)*8);
+  g.lineTo(2+i*8,-34);
+  g.fill();
+ }
 
- let g=ctx.createLinearGradient(-15,-18,25,32);
- g.addColorStop(0,s.light);
- g.addColorStop(.35,s.body);
- g.addColorStop(1,s.dark);
- ctx.fillStyle=g;
+ // Mască de supererou
+ g.fillStyle=s.mask;
+ g.beginPath();
+ g.moveTo(3,-24);
+ g.lineTo(42,-24);
+ g.lineTo(48,-1);
+ g.lineTo(28,12);
+ g.lineTo(4,2);
+ g.closePath();
+ g.fill();
 
- ctx.beginPath();
- ctx.ellipse(0,8,35,23,-.12,0,Math.PI*2);
- ctx.fill();
+ // Ochi albi, nervoși
+ g.fillStyle="#fff";
+ g.beginPath();
+ g.moveTo(10,-17);
+ g.lineTo(29,-13);
+ g.lineTo(22,-1);
+ g.lineTo(8,-5);
+ g.closePath();
+ g.fill();
 
- ctx.beginPath();
- ctx.ellipse(18,-11,26,24,-.12,0,Math.PI*2);
- ctx.fill();
+ g.beginPath();
+ g.moveTo(31,-14);
+ g.lineTo(44,-19);
+ g.lineTo(39,-4);
+ g.lineTo(27,-2);
+ g.closePath();
+ g.fill();
 
- ctx.fillStyle="#ffffff35";
- ctx.beginPath();
- ctx.ellipse(9,14,17,8,-.2,0,Math.PI*2);
- ctx.fill();
+ g.fillStyle="#111";
+ g.beginPath();
+ g.moveTo(16,-12);
+ g.lineTo(25,-10);
+ g.lineTo(20,-4);
+ g.fill();
 
- ctx.fillStyle=s.wing;
- ctx.beginPath();
- ctx.moveTo(3,-29);
- ctx.lineTo(-9,-53);
- ctx.lineTo(10,-42);
- ctx.lineTo(19,-59);
- ctx.lineTo(25,-31);
- ctx.closePath();
- ctx.fill();
+ g.beginPath();
+ g.moveTo(34,-12);
+ g.lineTo(40,-15);
+ g.lineTo(36,-6);
+ g.fill();
 
- ctx.fillStyle=s.light;
- ctx.beginPath();
- ctx.ellipse(27,-14,11,13,-.1,0,Math.PI*2);
- ctx.fill();
+ // Cioc
+ grad=g.createLinearGradient(36,0,58,18);
+ grad.addColorStop(0,"#fff06a");
+ grad.addColorStop(1,"#ff8216");
+ g.fillStyle=grad;
+ g.beginPath();
+ g.moveTo(39,1);
+ g.lineTo(61,9);
+ g.lineTo(39,18);
+ g.closePath();
+ g.fill();
+ g.strokeStyle="#78300b";
+ g.lineWidth=2;
+ g.stroke();
 
- ctx.fillStyle="#fff";
- ctx.beginPath();
- ctx.ellipse(28,-14,8,10,0,0,Math.PI*2);
- ctx.fill();
+ // Emblema SK
+ g.fillStyle=s.dark;
+ g.beginPath();
+ g.moveTo(-13,7);
+ g.lineTo(17,7);
+ g.lineTo(13,30);
+ g.lineTo(0,37);
+ g.lineTo(-12,27);
+ g.closePath();
+ g.fill();
+ g.strokeStyle="#fff";
+ g.lineWidth=2;
+ g.stroke();
+ g.fillStyle="#fff";
+ g.font="bold 13px system-ui";
+ g.textAlign="center";
+ g.fillText("SK",1,24);
 
- ctx.fillStyle="#11152a";
- ctx.beginPath();
- ctx.arc(31,-13,4.2,0,Math.PI*2);
- ctx.fill();
-
- ctx.fillStyle="#fff";
- ctx.beginPath();
- ctx.arc(32,-15,1.5,0,Math.PI*2);
- ctx.fill();
-
- g=ctx.createLinearGradient(37,-5,60,12);
- g.addColorStop(0,"#fff078");
- g.addColorStop(1,"#ff851c");
- ctx.fillStyle=g;
- ctx.beginPath();
- ctx.moveTo(39,-5);
- ctx.quadraticCurveTo(53,-3,62,5);
- ctx.lineTo(40,13);
- ctx.closePath();
- ctx.fill();
- ctx.strokeStyle="#a94c12";
- ctx.lineWidth=2;
- ctx.stroke();
-
- ctx.shadowBlur=0;
- ctx.fillStyle=s.dark;
- ctx.beginPath();
- ctx.moveTo(-12,5);
- ctx.lineTo(16,5);
- ctx.lineTo(14,28);
- ctx.lineTo(2,38);
- ctx.lineTo(-10,28);
- ctx.closePath();
- ctx.fill();
-
- ctx.strokeStyle="#fff";
- ctx.lineWidth=2.5;
- ctx.stroke();
-
- ctx.fillStyle="#fff";
- ctx.font="1000 14px system-ui";
- ctx.textAlign="center";
- ctx.fillText("SK",2,24);
-
- ctx.fillStyle=s.wing;
- ctx.beginPath();
- ctx.moveTo(-15,5);
- ctx.quadraticCurveTo(-3,-7,12,0);
- ctx.quadraticCurveTo(0,17,-17,19);
- ctx.closePath();
- ctx.fill();
-
- ctx.restore();
+ g.restore();
 }
 
-function drawObstacle(o){
- const g=ctx.createLinearGradient(o.x,0,o.x+72,0);
- g.addColorStop(0,"#20204e");
- g.addColorStop(.5,"#55558c");
- g.addColorStop(1,"#24214e");
+function drawPipe(p){
+ const grad=ctx.createLinearGradient(p.x,0,p.x+72,0);
+ grad.addColorStop(0,"#29215f");
+ grad.addColorStop(.5,"#7955bb");
+ grad.addColorStop(1,"#25174f");
+ ctx.fillStyle=grad;
+ ctx.fillRect(p.x,0,72,p.top);
+ ctx.fillRect(p.x,p.top+p.gap,72,H);
 
- ctx.fillStyle=g;
- ctx.fillRect(o.x,0,72,o.top);
- ctx.fillRect(o.x,o.top+o.gap,72,H);
+ ctx.fillStyle="#a77bff";
+ ctx.fillRect(p.x-8,p.top-13,88,16);
+ ctx.fillRect(p.x-8,p.top+p.gap,88,16);
 
- ctx.strokeStyle="#11102e";
+ ctx.strokeStyle="#120b38";
  ctx.lineWidth=5;
- ctx.strokeRect(o.x,0,72,o.top);
- ctx.strokeRect(o.x,o.top+o.gap,72,H);
+ ctx.strokeRect(p.x,0,72,p.top);
+ ctx.strokeRect(p.x,p.top+p.gap,72,H);
 
- ctx.fillStyle="#7775a8";
- ctx.fillRect(o.x-8,o.top-13,88,15);
- ctx.fillRect(o.x-8,o.top+o.gap,88,15);
-
- ctx.fillStyle="#ffcf69";
- for(let yy=20;yy<o.top-18;yy+=43){
-  ctx.fillRect(o.x+17,yy,13,19);
-  ctx.fillRect(o.x+43,yy,13,19);
- }
-
- for(let yy=o.top+o.gap+22;yy<H-20;yy+=43){
-  ctx.fillRect(o.x+17,yy,13,19);
-  ctx.fillRect(o.x+43,yy,13,19);
+ ctx.fillStyle="#ffe16c";
+ for(let y=22;y<p.top-15;y+=42){
+  ctx.fillRect(p.x+15,y,12,17);
+  ctx.fillRect(p.x+44,y,12,17);
  }
 }
 
-function drawCollectibles(){
- coins.forEach(a=>{
+function drawLoot(){
+ loot.forEach(a=>{
   ctx.save();
   ctx.translate(a.x,a.y);
-  ctx.rotate(Math.sin(a.spin)*.15);
-  ctx.shadowColor="#ffc52c";
-  ctx.shadowBlur=22;
+  ctx.rotate(Math.sin(a.spin)*.13);
 
-  const g=ctx.createRadialGradient(-7,-8,2,0,0,22);
-  g.addColorStop(0,"#fff6a1");
-  g.addColorStop(.4,"#ffd43b");
-  g.addColorStop(1,"#d87900");
-
-  ctx.fillStyle=g;
-  ctx.beginPath();
-  ctx.arc(0,0,20,0,Math.PI*2);
-  ctx.fill();
-
-  ctx.strokeStyle="#fff0a0";
-  ctx.lineWidth=3;
-  ctx.stroke();
-
-  ctx.shadowBlur=0;
-  ctx.fillStyle="#985000";
-  ctx.font="1000 14px system-ui";
-  ctx.textAlign="center";
-  ctx.fillText("SK",0,5);
-  ctx.restore();
- });
-
- gems.forEach(a=>{
-  ctx.save();
-  ctx.translate(a.x,a.y);
-  ctx.rotate(Math.sin(a.spin)*.08);
-  ctx.shadowColor="#21dfff";
-  ctx.shadowBlur=22;
-
-  const g=ctx.createLinearGradient(-20,-20,20,25);
-  g.addColorStop(0,"#e8ffff");
-  g.addColorStop(.35,"#42efff");
-  g.addColorStop(1,"#0872e9");
-
-  ctx.fillStyle=g;
-  ctx.beginPath();
-  ctx.moveTo(0,-25);
-  ctx.lineTo(25,-10);
-  ctx.lineTo(18,17);
-  ctx.lineTo(0,28);
-  ctx.lineTo(-18,17);
-  ctx.lineTo(-25,-10);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.strokeStyle="#e5ffff";
-  ctx.lineWidth=3;
-  ctx.stroke();
+  if(a.type==="coin"){
+   ctx.shadowColor="#ffc52c";
+   ctx.shadowBlur=20;
+   const g=ctx.createRadialGradient(-7,-8,2,0,0,23);
+   g.addColorStop(0,"#fff8b0");
+   g.addColorStop(.5,"#ffc928");
+   g.addColorStop(1,"#bd6400");
+   ctx.fillStyle=g;
+   ctx.beginPath();
+   ctx.arc(0,0,20,0,Math.PI*2);
+   ctx.fill();
+   ctx.strokeStyle="#fff3a2";
+   ctx.lineWidth=3;
+   ctx.stroke();
+   ctx.fillStyle="#784000";
+   ctx.font="bold 12px system-ui";
+   ctx.textAlign="center";
+   ctx.fillText("SK",0,4);
+  }else{
+   ctx.shadowColor="#28eaff";
+   ctx.shadowBlur=22;
+   const g=ctx.createLinearGradient(-20,-25,20,25);
+   g.addColorStop(0,"#fff");
+   g.addColorStop(.4,"#47f1ff");
+   g.addColorStop(1,"#0871df");
+   ctx.fillStyle=g;
+   ctx.beginPath();
+   ctx.moveTo(0,-25);
+   ctx.lineTo(22,-9);
+   ctx.lineTo(16,17);
+   ctx.lineTo(0,26);
+   ctx.lineTo(-16,17);
+   ctx.lineTo(-22,-9);
+   ctx.closePath();
+   ctx.fill();
+   ctx.strokeStyle="#dfffff";
+   ctx.lineWidth=2;
+   ctx.stroke();
+  }
   ctx.restore();
  });
 }
 
 function panel(y,h){
- rounded(38,y,524,h,24,"#35147bea","#10082f",7);
- ctx.strokeStyle="#9c6aff";
- ctx.lineWidth=3;
- ctx.strokeRect(48,y+10,504,h-20);
+ ctx.fillStyle="#210b5eef";
+ ctx.strokeStyle="#9b55ff";
+ ctx.lineWidth=5;
+ ctx.beginPath();
+ ctx.roundRect(45,y,510,h,25);
+ ctx.fill();
+ ctx.stroke();
 }
 
-function drawMenu(){
- ctx.fillStyle="#140b39aa";
- ctx.fillRect(0,0,W,H);
+function drawOverlay(){
+ if(state==="menu"){
+  ctx.fillStyle="#08052877";
+  ctx.fillRect(0,0,W,H);
+  ctx.textAlign="center";
+  ctx.shadowColor="#ff174e";
+  ctx.shadowBlur=20;
+  ctx.fillStyle="#ff294d";
+  ctx.font="italic 1000 76px system-ui";
+  ctx.fillText("SKAPADEN",300,150);
+  ctx.shadowBlur=0;
+  drawBird(ctx,{x:300,y:320,rot:0});
+  panel(445,135);
+  ctx.fillStyle="#36ed22";
+  ctx.beginPath();
+  ctx.roundRect(115,465,370,85,20);
+  ctx.fill();
+  ctx.fillStyle="#10230b";
+  ctx.font="1000 45px system-ui";
+  ctx.fillText("▶ START",300,522);
+  ctx.fillStyle="#fff";
+  ctx.font="bold 20px system-ui";
+  ctx.fillText("SUPERHERO BIRD • SK",300,590);
+ }
 
- ctx.save();
- ctx.shadowColor="#ff2c78";
- ctx.shadowBlur=24;
- ctx.fillStyle="#ff326d";
- ctx.font="italic 1000 76px system-ui";
- ctx.textAlign="center";
- ctx.fillText("SKAPADEN",300,160);
- ctx.restore();
+ if(state==="over"){
+  ctx.fillStyle="#090321bb";
+  ctx.fillRect(0,0,W,H);
+  ctx.textAlign="center";
+  ctx.shadowColor="#ff182c";
+  ctx.shadowBlur=25;
+  ctx.fillStyle="#ff303c";
+  ctx.font="1000 76px system-ui";
+  ctx.fillText("GAME OVER",300,170);
+  ctx.shadowBlur=0;
+  panel(230,190);
+  ctx.fillStyle="#fff";
+  ctx.font="bold 32px system-ui";
+  ctx.fillText("Scor: "+score,300,300);
+  ctx.fillText("🏆 Record: "+best,300,350);
+  ctx.fillStyle="#ffdf55";
+  ctx.fillText("🪙 Monede: "+coins,300,400);
+  drawBird(ctx,{x:300,y:525,rot:.25});
+  ctx.fillStyle="#35ec20";
+  ctx.beginPath();
+  ctx.roundRect(115,630,370,82,20);
+  ctx.fill();
+  ctx.fillStyle="#09240a";
+  ctx.font="1000 38px system-ui";
+  ctx.fillText("↻ REVINO",300,684);
+ }
 
- drawBird({x:300,y:330,rot:0,wing:frame});
-
- rounded(105,465,390,104,22,"#35e51d","#102b0b",8);
- ctx.fillStyle="#fff";
- ctx.font="1000 48px system-ui";
- ctx.textAlign="center";
- ctx.fillText("▶ START",300,532);
-
- ctx.fillStyle="#fff";
- ctx.font="18px system-ui";
- ctx.fillText("Atingează START pentru a juca",300,580);
-}
-
-function drawOver(){
- ctx.fillStyle="#100927b8";
- ctx.fillRect(0,0,W,H);
-
- ctx.save();
- ctx.shadowColor="#ff2020";
- ctx.shadowBlur=22;
- ctx.fillStyle="#ff343d";
- ctx.font="1000 72px system-ui";
- ctx.textAlign="center";
- ctx.fillText("GAME",300,160);
- ctx.fillText("OVER",300,225);
- ctx.restore();
-
- panel(260,205);
-
- ctx.fillStyle="#fff";
- ctx.textAlign="center";
- ctx.font="1000 31px system-ui";
- ctx.fillText("Scor: "+score,300,320);
- ctx.fillText("👑 Record: "+best,300,365);
-
- ctx.font="1000 28px system-ui";
- ctx.fillStyle="#ffdb59";
- ctx.fillText("🪙 +"+totalCoins,300,425);
-
- drawBird({x:300,y:545,rot:1.2,wing:0});
-
- rounded(115,635,370,83,18,"#35e51d","#102b0b",7);
- ctx.fillStyle="#fff";
- ctx.font="1000 38px system-ui";
- ctx.fillText("↻ REVINO",300,690);
-}
-
-function drawPause(){
- ctx.fillStyle="#100927bb";
- ctx.fillRect(0,0,W,H);
- panel(275,170);
- ctx.fillStyle="#fff";
- ctx.textAlign="center";
- ctx.font="1000 62px system-ui";
- ctx.fillText("PAUZĂ",300,370);
- ctx.font="22px system-ui";
- ctx.fillText("Atinge ecranul pentru a continua",300,420);
+ if(state==="pause"){
+  ctx.fillStyle="#090321aa";
+  ctx.fillRect(0,0,W,H);
+  panel(285,160);
+  ctx.fillStyle="#fff";
+  ctx.textAlign="center";
+  ctx.font="1000 58px system-ui";
+  ctx.fillText("PAUZĂ",300,380);
+  ctx.font="bold 20px system-ui";
+  ctx.fillText("Atinge ecranul pentru a continua",300,425);
+ }
 }
 
 function draw(){
  ctx.clearRect(0,0,W,H);
 
- if(shake>0){
+ if(shake){
   ctx.save();
   ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
   shake*=.82;
  }
 
- city();
- obstacles.forEach(drawObstacle);
- drawCollectibles();
+ background();
+ pipes.forEach(drawPipe);
+ drawLoot();
 
  particles.forEach(p=>{
   ctx.globalAlpha=Math.max(0,p.life/45);
   ctx.fillStyle=p.color;
   ctx.beginPath();
-  ctx.arc(p.x,p.y,p.size||5,0,Math.PI*2);
+  ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
   ctx.fill();
  });
-
  ctx.globalAlpha=1;
 
- if((state==="play"||state==="pause")&&bird)drawBird(bird);
+ if(state==="play"||state==="pause")drawBird(ctx,bird);
+ drawOverlay();
 
- if(state==="menu")drawMenu();
- else if(state==="over")drawOver();
- else if(state==="pause")drawPause();
-
- if(shake>0)ctx.restore();
-
- if(flash>0){
-  ctx.fillStyle=`rgba(255,255,255,${flash/18})`;
-  ctx.fillRect(0,0,W,H);
-  flash--;
- }
+ if(shake)ctx.restore();
 }
 
-/* MAGAZIN CU 10 COSTUME */
+/* MAGAZINUL CU TOATE CELE 10 COSTUME */
 
 function renderShop(){
  const list=$("skinList");
- if(!list)return;
-
  list.innerHTML="";
 
  SKINS.forEach(s=>{
-  const owned=ownedSkins.includes(s.id);
-  const active=activeSkin===s.id;
+  const has=owned.includes(s.id);
+  const selected=active===s.id;
   const card=document.createElement("div");
-
   card.className="skin-card";
 
   card.innerHTML=`
-   <div class="swatch"
-    style="background:linear-gradient(135deg,${s.light},${s.body},${s.dark});border:3px solid ${s.wing}">
-    🐦
+   <div class="skin-preview">
+    <canvas width="90" height="90"></canvas>
    </div>
    <div class="skin-info">
     <b>${s.name}</b>
-    <small>${s.cost===0?"GRATUIT":"🪙 "+s.cost}</small>
+    <small>${s.cost?"🪙 "+s.cost:"GRATUIT"}</small>
    </div>
-   <button class="skin-action ${active?"selected":""}">
-    ${active?"ECHIPAT":owned?"ECHIPEAZĂ":"CUMPĂRĂ"}
+   <button class="skin-action ${selected?"selected":""}">
+    ${selected?"ECHIPAT":has?"ECHIPEAZĂ":"CUMPĂRĂ"}
    </button>
   `;
 
-  const btn=card.querySelector("button");
-  btn.disabled=active;
+  const preview=card.querySelector("canvas").getContext("2d");
+  drawBird(preview,{x:45,y:48,rot:0},s.id);
 
-  btn.onclick=()=>{
-   if(owned){
-    activeSkin=s.id;
-    save();
-    renderShop();
-    tone(750,.15,"triangle",.12);
-   }else if(bankCoins>=s.cost){
-    bankCoins-=s.cost;
-    ownedSkins.push(s.id);
-    activeSkin=s.id;
-    save();
-    update();
-    renderShop();
-    tone(900,.2,"triangle",.14);
+  card.querySelector("button").disabled=selected;
+
+  card.querySelector("button").onclick=()=>{
+   if(has){
+    active=s.id;
+    beep(760,.12,.1);
+   }else if(coins>=s.cost){
+    coins-=s.cost;
+    owned.push(s.id);
+    active=s.id;
+    beep(950,.18,.12);
    }else{
-    const notice=$("shopNotice");
-    if(notice)notice.textContent="Nu ai suficiente monede!";
-    tone(180,.2,"square",.1);
+    $("shopNotice").textContent="Nu ai suficiente monede!";
+    beep(170,.2,.1);
+    return;
    }
+
+   save();
+   hud();
+   renderShop();
   };
 
   list.appendChild(card);
  });
 
- text("shopNotice","Monede disponibile: "+bankCoins+" 🪙");
+ $("shopNotice").textContent="Monede: "+coins+" • Diamante: "+gems;
 }
 
 function openShop(){
  renderShop();
- const modal=$("shopModal");
- if(modal)modal.hidden=false;
+ $("shopModal").classList.add("open");
 }
 
 function closeShop(){
- const modal=$("shopModal");
- if(modal)modal.hidden=true;
+ $("shopModal").classList.remove("open");
 }
 
-/* RECOMPENSE */
+$("shop").onclick=openShop;
+$("closeShop").onclick=closeShop;
 
-function claimDaily(){
- if(dailyClaim===today()){
-  text("dailyNotice","Ai luat deja recompensa de azi!");
+$("start").onclick=()=>{
+ audioOn();
+ if(state!=="play")startGame();
+};
+
+$("retry").onclick=()=>{
+ audioOn();
+ startGame();
+};
+
+$("pause").onclick=()=>{
+ if(state==="play"){
+  state="pause";
+  musicOff();
+ }else if(state==="pause"){
+  state="play";
+  musicOn();
+ }
+};
+
+$("sound").onclick=()=>{
+ sound=!sound;
+ if(!sound)musicOff();
+ else{
+  audioOn();
+  musicOn();
+  beep(700,.12,.1);
+ }
+ save();
+ hud();
+};
+
+$("dailyButton").onclick=()=>{
+ if(daily===today()){
+  $("dailyNotice").textContent="Recompensa deja revendicată azi.";
   return;
  }
-
- dailyClaim=today();
- bankCoins+=100;
+ daily=today();
+ coins+=100;
+ $("dailyNotice").textContent="🎁 Ai primit 100 de monede!";
  save();
- update();
+ hud();
+};
 
- text("dailyNotice","🎁 Ai primit 100 de monede!");
- const btn=$("dailyButton");
- if(btn){
-  btn.disabled=true;
-  btn.textContent="REVINO MÂINE";
- }
-}
-
-function claimMission(){
- if(missionClaim===today())return;
-
- if(missionCoins<20){
-  text("missionNotice","Mai colectează "+(20-missionCoins)+" monede!");
+$("missionButton").onclick=()=>{
+ if(mission===today()){
+  $("missionNotice").textContent="Misiune deja revendicată.";
   return;
  }
-
- missionClaim=today();
- bankCoins+=150;
- save();
- update();
-
- text("missionNotice","🏆 Ai primit 150 de monede!");
- const btn=$("missionButton");
- if(btn){
-  btn.disabled=true;
-  btn.textContent="COMPLETATĂ";
+ if(missionCount<20){
+  $("missionNotice").textContent="Progres: "+missionCount+"/20 monede.";
+  return;
  }
-}
-
-/* BUTOANE HTML */
-
-if($("shop"))$("shop").onclick=openShop;
-if($("closeShop"))$("closeShop").onclick=closeShop;
-
-if($("dailyButton"))$("dailyButton").onclick=claimDaily;
-if($("missionButton"))$("missionButton").onclick=claimMission;
-
-if($("start")){
- $("start").onclick=()=>{
-  audioReady();
-  if(state==="menu"||state==="over")reset();
-  else if(state==="pause"){
-   state="play";
-   startMusic();
-  }
- };
-}
-
-if($("retry")){
- $("retry").onclick=()=>{
-  audioReady();
-  reset();
- };
-}
-
-if($("pause")){
- $("pause").onclick=()=>{
-  audioReady();
-  if(state==="play"){
-   state="pause";
-   stopMusic();
-   text("message","Joc pus pe pauză");
-  }else if(state==="pause"){
-   state="play";
-   startMusic();
-   text("message","Continuă zborul!");
-  }
- };
-}
-
-if($("sound")){
- $("sound").onclick=()=>{
-  sound=!sound;
-  if(!sound)stopMusic();
-  else{
-   audioReady();
-   if(state==="play")startMusic();
-   tone(700,.15,"triangle",.12);
-  }
-  save();
-  update();
- };
-}
-
-/* APĂSARE PE CANVAS: START, REVINO, ZBOR */
+ mission=today();
+ coins+=150;
+ $("missionNotice").textContent="🏆 Misiune completă! +150 monede!";
+ save();
+ hud();
+};
 
 canvas.addEventListener("pointerdown",e=>{
  e.preventDefault();
- audioReady();
+ audioOn();
 
- const rect=canvas.getBoundingClientRect();
- const px=(e.clientX-rect.left)*W/rect.width;
- const py=(e.clientY-rect.top)*H/rect.height;
+ const r=canvas.getBoundingClientRect();
+ const px=(e.clientX-r.left)*W/r.width;
+ const py=(e.clientY-r.top)*H/r.height;
 
  if(state==="menu"){
-  reset();
+  startGame();
   return;
  }
 
  if(state==="over"){
-  if(py>600){
-   reset();
-  }
+  if(py>590)startGame();
   return;
  }
 
  if(state==="pause"){
   state="play";
-  startMusic();
+  musicOn();
   return;
  }
 
@@ -907,24 +738,9 @@ canvas.addEventListener("pointerdown",e=>{
 window.addEventListener("keydown",e=>{
  if(e.code==="Space"||e.code==="ArrowUp"){
   e.preventDefault();
-  audioReady();
   flap();
  }
 });
-
-/* INITIALIZARE */
-
-if(dailyClaim===today()){
- const b=$("dailyButton");
- if(b){b.disabled=true;b.textContent="REVINO MÂINE";}
-}
-
-if(missionClaim===today()){
- const b=$("missionButton");
- if(b){b.disabled=true;b.textContent="COMPLETATĂ";}
-}
-
-update();
 
 function loop(){
  tick();
@@ -932,7 +748,7 @@ function loop(){
  requestAnimationFrame(loop);
 }
 
-draw();
-requestAnimationFrame(loop);
+hud();
+loop();
 
 })();
