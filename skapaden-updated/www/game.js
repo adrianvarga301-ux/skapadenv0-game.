@@ -1,317 +1,596 @@
 
-/* =================================
-   SKAPADEN - UPGRADE FINAL
-================================= */
+/* ============================================
+   SKAPADEN - COMPLETE EDITION
+   Superhero Flappy Game
+   ============================================ */
 
-// MUZICĂ ORIGINALĂ + EFECTE AUDIO
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const $ = id => document.getElementById(id);
 
-let musicOn = true;
+const W = 600;
+const H = 760;
+
+// ---------- SAVE SYSTEM ----------
+
+function read(key, fallback) {
+  try {
+    const value = localStorage.getItem(key);
+    return value === null ? fallback : JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
+let coins = read("skapaden_coins", 0);
+let gems = read("skapaden_gems", 0);
+let best = read("skapaden_best", 0);
+let sound = read("skapaden_sound", true);
+let musicOn = read("skapaden_music", true);
+let selectedSkin = read("skapaden_skin", "red");
+let ownedSkins = read("skapaden_owned", ["red"]);
+let leaderboard = read("skapaden_leaderboard", []);
+let missionProgress = read("skapaden_mission", 0);
+let missionClaimed = read("skapaden_mission_claimed", false);
+let lastDaily = read("skapaden_daily", "");
+
+function save() {
+  localStorage.setItem("skapaden_coins", JSON.stringify(coins));
+  localStorage.setItem("skapaden_gems", JSON.stringify(gems));
+  localStorage.setItem("skapaden_best", JSON.stringify(best));
+  localStorage.setItem("skapaden_sound", JSON.stringify(sound));
+  localStorage.setItem("skapaden_music", JSON.stringify(musicOn));
+  localStorage.setItem("skapaden_skin", JSON.stringify(selectedSkin));
+  localStorage.setItem("skapaden_owned", JSON.stringify(ownedSkins));
+  localStorage.setItem("skapaden_leaderboard", JSON.stringify(leaderboard));
+  localStorage.setItem("skapaden_mission", JSON.stringify(missionProgress));
+  localStorage.setItem("skapaden_mission_claimed", JSON.stringify(missionClaimed));
+  localStorage.setItem("skapaden_daily", JSON.stringify(lastDaily));
+}
+
+function hud() {
+  $("coins").textContent = coins;
+  $("gems").textContent = gems;
+  $("best").textContent = best;
+
+  $("missionNotice").textContent = missionClaimed
+    ? "🏆 Misiune completată! Bonus primit!"
+    : `🏆 Misiune: ${Math.min(missionProgress, 20)}/20 monede pentru 150 bonus!`;
+}
+
+// ---------- COSTUMES ----------
+
+const SKINS = [
+  { id:"red", name:"SK HERO", body:"#ed263e", light:"#ff7582", dark:"#8c1025", wing:"#ffcf38", coin:0, gem:0, icon:"🦸" },
+  { id:"gold", name:"GOLD HERO", body:"#e6a91c", light:"#fff17c", dark:"#895000", wing:"#fff3b0", coin:300, gem:0, icon:"👑" },
+  { id:"blue", name:"CYBER BLUE", body:"#168bff", light:"#82d6ff", dark:"#06427c", wing:"#41f4ff", coin:500, gem:0, icon:"🌊" },
+  { id:"green", name:"TOXIC HERO", body:"#35c84c", light:"#9dff82", dark:"#086326", wing:"#d4ff42", coin:700, gem:0, icon:"🍀" },
+  { id:"purple", name:"SHADOW PURPLE", body:"#873cff", light:"#cba2ff", dark:"#35106c", wing:"#f2c3ff", coin:900, gem:0, icon:"🔮" },
+  { id:"flame", name:"FIRE HERO", body:"#ff681c", light:"#ffc15c", dark:"#8c1900", wing:"#ffe33d", coin:1200, gem:0, icon:"🔥" },
+  { id:"ice", name:"ICE HERO", body:"#7deaff", light:"#e3ffff", dark:"#167da8", wing:"#ffffff", coin:0, gem:5, icon:"❄️" },
+  { id:"pink", name:"PINK HERO", body:"#ff55bd", light:"#ffb9e9", dark:"#89145d", wing:"#fff0fa", coin:0, gem:8, icon:"💗" },
+  { id:"shadow", name:"DARK HERO", body:"#34334b", light:"#8584a8", dark:"#090914", wing:"#a68aff", coin:0, gem:12, icon:"🌑" },
+  { id:"neon", name:"NEON LEGEND", body:"#00e9bd", light:"#a2fff0", dark:"#00665c", wing:"#fff43c", coin:0, gem:20, icon:"⚡" }
+];
+
+function currentSkin() {
+  return SKINS.find(s => s.id === selectedSkin) || SKINS[0];
+}
+
+// ---------- AUDIO ----------
+
+let audio = null;
 let musicTimer = null;
 let musicStep = 0;
 
 const musicNotes = [
-  261.63, 329.63, 392.00, 523.25,
-  392.00, 329.63, 293.66, 392.00,
-  440.00, 523.25, 659.25, 523.25,
-  440.00, 392.00, 329.63, 392.00
+  261.63,329.63,392,523.25,
+  392,329.63,293.66,392,
+  440,523.25,659.25,523.25,
+  440,392,329.63,392
 ];
 
 function audioReady() {
-  audio = audio || new (
-    window.AudioContext || window.webkitAudioContext
-  )();
-
+  if (!audio) {
+    audio = new (window.AudioContext || window.webkitAudioContext)();
+  }
   if (audio.state === "suspended") audio.resume();
 }
 
-function musicNote(freq, duration = 0.28, volume = 0.035) {
-  if (!musicOn) return;
+function playTone(freq, duration = 0.18, volume = 0.05, type = "sine") {
+  if (!sound) return;
 
   try {
     audioReady();
-
     const osc = audio.createOscillator();
     const gain = audio.createGain();
 
-    osc.type = "triangle";
+    osc.type = type;
     osc.frequency.value = freq;
-
     gain.gain.setValueAtTime(volume, audio.currentTime);
-    gain.gain.exponentialRampToValueAtTime(
-      0.001,
-      audio.currentTime + duration
-    );
+    gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + duration);
 
     osc.connect(gain);
     gain.connect(audio.destination);
-
     osc.start();
     osc.stop(audio.currentTime + duration);
   } catch(e) {}
 }
 
 function startMusic() {
-  if (!musicOn || musicTimer) return;
+  if (!musicOn || musicTimer || state !== "playing") return;
 
-  try {
-    audioReady();
+  musicTimer = setInterval(() => {
+    if (!musicOn || state !== "playing") return;
 
-    musicTimer = setInterval(() => {
-      if (!musicOn || state === "over") return;
+    try {
+      audioReady();
 
-      const note = musicNotes[musicStep % musicNotes.length];
+      const freq = musicNotes[musicStep % musicNotes.length];
 
-      musicNote(note, 0.35, 0.025);
+      const osc = audio.createOscillator();
+      const gain = audio.createGain();
 
-      // Bas cinematic
+      osc.type = "triangle";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.022, audio.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.3);
+
+      osc.connect(gain);
+      gain.connect(audio.destination);
+      osc.start();
+      osc.stop(audio.currentTime + 0.3);
+
       if (musicStep % 4 === 0) {
-        musicNote(note / 2, 0.5, 0.035);
+        const bass = audio.createOscillator();
+        const bassGain = audio.createGain();
+        bass.type = "sine";
+        bass.frequency.value = freq / 2;
+        bassGain.gain.setValueAtTime(0.025, audio.currentTime);
+        bassGain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.45);
+        bass.connect(bassGain);
+        bassGain.connect(audio.destination);
+        bass.start();
+        bass.stop(audio.currentTime + 0.45);
       }
 
       musicStep++;
-    }, 280);
-  } catch(e) {}
+    } catch(e) {}
+  }, 280);
 }
 
 function stopMusic() {
-  if (musicTimer) {
-    clearInterval(musicTimer);
-    musicTimer = null;
-  }
+  if (musicTimer) clearInterval(musicTimer);
+  musicTimer = null;
 }
 
-function explosionSound() {
-  if (!sound) return;
-
-  try {
-    audioReady();
-
-    const osc = audio.createOscillator();
-    const gain = audio.createGain();
-
-    osc.type = "sawtooth";
-    osc.frequency.setValueAtTime(130, audio.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(
-      35,
-      audio.currentTime + 0.55
-    );
-
-    gain.gain.setValueAtTime(0.16, audio.currentTime);
-    gain.gain.exponentialRampToValueAtTime(
-      0.001,
-      audio.currentTime + 0.6
-    );
-
-    osc.connect(gain);
-    gain.connect(audio.destination);
-
-    osc.start();
-    osc.stop(audio.currentTime + 0.6);
-
-    // Zgomot cinematic scurt
-    const buffer = audio.createBuffer(
-      1,
-      audio.sampleRate * 0.35,
-      audio.sampleRate
-    );
-
-    const channel = buffer.getChannelData(0);
-
-    for (let i = 0; i < channel.length; i++) {
-      channel[i] = (Math.random() * 2 - 1) *
-        (1 - i / channel.length);
-    }
-
-    const noise = audio.createBufferSource();
-    const noiseGain = audio.createGain();
-
-    noise.buffer = buffer;
-    noiseGain.gain.value = 0.09;
-
-    noise.connect(noiseGain);
-    noiseGain.connect(audio.destination);
-
-    noise.start();
-  } catch(e) {}
+function updateAudioButtons() {
+  $("sound").textContent = sound ? "🔊 ON" : "🔇 OFF";
+  musicButton.textContent = musicOn ? "🎵 ON" : "🎵 OFF";
 }
-
-// BUTON MUZICĂ LÂNGĂ BUTONUL SUNET
 
 const musicButton = document.createElement("button");
-
 musicButton.id = "musicToggle";
-musicButton.textContent = "🎵 ON";
+musicButton.textContent = musicOn ? "🎵 ON" : "🎵 OFF";
 musicButton.style.cssText = `
-  margin-left:6px;
-  padding:8px 12px;
-  border:1px solid #8b65ff;
-  border-radius:12px;
   background:#24104f;
   color:white;
-  font-weight:bold;
-  cursor:pointer;
+  border:2px solid #a778ff;
+  border-radius:14px;
+  padding:10px 8px;
+  font-size:clamp(12px,3vw,17px);
 `;
 
-const soundButton = $("sound");
+$("sound").insertAdjacentElement("afterend", musicButton);
 
-if (soundButton && soundButton.parentElement) {
-  soundButton.insertAdjacentElement("afterend", musicButton);
-}
+$("sound").addEventListener("click", () => {
+  sound = !sound;
+  save();
+  updateAudioButtons();
+});
 
 musicButton.addEventListener("click", () => {
   musicOn = !musicOn;
+  save();
+  updateAudioButtons();
 
-  musicButton.textContent = musicOn ? "🎵 ON" : "🎵 OFF";
-
-  if (musicOn) {
-    startMusic();
-  } else {
-    stopMusic();
-  }
+  if (musicOn) startMusic();
+  else stopMusic();
 });
 
-// PORNEȘTE MUZICA LA START
+function explosionSound() {
+  playTone(120, 0.5, 0.13, "sawtooth");
+}
 
-const originalStartGame = startGame;
+updateAudioButtons();
 
-startGame = function() {
-  originalStartGame();
-  if (musicOn) startMusic();
+// ---------- GAME VARIABLES ----------
+
+let state = "menu";
+let score = 0;
+let frame = 0;
+let lastTime = 0;
+let speed = 3.5;
+let obstacles = [];
+let collectibles = [];
+let particles = [];
+let buildings = [];
+
+let bird = {
+  x: 160,
+  y: 350,
+  velocity: 0,
+  rotation: 0,
+  radius: 20
 };
 
-// OBSTACOLE FUTURISTE DIN BLOCURI
+// ---------- BACKGROUND ----------
 
-createPipe = function(y) {
-  const group = new THREE.Group();
+function createBuildings() {
+  buildings = [];
 
-  const metal = new THREE.MeshStandardMaterial({
-    color: "#252b3b",
-    metalness: 0.8,
-    roughness: 0.28
-  });
+  for (let i = 0; i < 25; i++) {
+    buildings.push({
+      x: i * 30,
+      h: 100 + Math.random() * 240,
+      w: 24 + Math.random() * 17,
+      shift: Math.random() * 20
+    });
+  }
+}
 
-  const darkMetal = new THREE.MeshStandardMaterial({
-    color: "#101522",
-    metalness: 0.75,
-    roughness: 0.35
-  });
+createBuildings();
 
-  const neonPurple = new THREE.MeshStandardMaterial({
-    color: "#8d36ff",
-    emissive: "#6815ff",
-    emissiveIntensity: 1.5
-  });
+function drawBackground() {
+  const gradient = ctx.createLinearGradient(0, 0, 0, H);
+  gradient.addColorStop(0, "#09051f");
+  gradient.addColorStop(0.55, "#17104b");
+  gradient.addColorStop(1, "#080b20");
 
-  const neonBlue = new THREE.MeshStandardMaterial({
-    color: "#24dfff",
-    emissive: "#00bfff",
-    emissiveIntensity: 1.5
-  });
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, W, H);
 
-  const halfGap = PIPE_GAP / 2;
-  const topH = 7.6 - (y + halfGap);
-  const bottomH = y - halfGap + 7.6;
+  // Moon
+  ctx.shadowBlur = 35;
+  ctx.shadowColor = "#a76aff";
+  ctx.fillStyle = "#c7a9ff";
+  ctx.beginPath();
+  ctx.arc(475, 105, 36, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
 
-  function addBlock(x, centerY, width, height, depth, material) {
-    if (height <= 0) return;
-
-    const block = new THREE.Mesh(
-      new THREE.BoxGeometry(width, height, depth),
-      material
-    );
-
-    block.position.set(x, centerY, 0);
-    group.add(block);
+  // Stars
+  for (let i = 0; i < 75; i++) {
+    const x = (i * 97) % W;
+    const y = (i * 53) % 330;
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.fillRect(x, y, 2, 2);
   }
 
-  function addStructure(isTop, height) {
-    if (height <= 0.4) return;
+  // Buildings
+  buildings.forEach((b, i) => {
+    let x = (b.x - frame * 0.35) % 750;
+    if (x < -50) x += 750;
 
-    const center = isTop
-      ? (7.6 + y + halfGap) / 2
-      : (y - halfGap - 7.6) / 2;
+    const y = H - b.h;
 
-    addBlock(0, center, 1.05, height, 1.3, metal);
+    ctx.fillStyle = "#11172e";
+    ctx.fillRect(x, y, b.w, b.h);
 
-    // Panouri laterale
-    addBlock(-0.57, center, 0.12, height * 0.85, 1.35, darkMetal);
-    addBlock(0.57, center, 0.12, height * 0.85, 1.35, darkMetal);
+    ctx.fillStyle = "#30205c";
+    ctx.fillRect(x, y, b.w, 5);
 
-    // Lumini neon
-    addBlock(-0.05, center, 0.055, height * 0.75, 1.38, neonPurple);
-    addBlock(0.38, center, 0.045, height * 0.55, 1.4, neonBlue);
+    for (let j = 0; j < 8; j++) {
+      const wy = y + 20 + j * 27;
 
-    // Segmente arhitecturale
-    const segments = Math.floor(height / 1.3);
+      if (wy < H - 20) {
+        ctx.fillStyle = (i + j) % 2
+          ? "rgba(30,220,255,.7)"
+          : "rgba(160,70,255,.8)";
 
-    for (let i = 0; i < segments; i++) {
-      const yy = isTop
-        ? center - height / 2 + 0.65 + i * 1.3
-        : center - height / 2 + 0.65 + i * 1.3;
+        ctx.fillRect(x + 5, wy, 5, 9);
+        ctx.fillRect(x + 16, wy, 5, 9);
+      }
+    }
+  });
 
-      addBlock(-0.68, yy, 0.18, 0.48, 1.45, darkMetal);
-      addBlock(0.68, yy, 0.18, 0.48, 1.45, darkMetal);
+  // Ground
+  ctx.fillStyle = "#090d21";
+  ctx.fillRect(0, H - 20, W, 20);
+  ctx.fillStyle = "#22dfff";
+  ctx.fillRect(0, H - 20, W, 3);
+}
+
+// ---------- BIRD DRAWING ----------
+
+function drawBird() {
+  const skin = currentSkin();
+
+  ctx.save();
+  ctx.translate(bird.x, bird.y);
+  ctx.rotate(bird.rotation);
+
+  // Cape
+  ctx.fillStyle = "#a20e2c";
+  ctx.beginPath();
+  ctx.moveTo(-12, 5);
+  ctx.lineTo(-52, 20 + Math.sin(frame * 0.18) * 8);
+  ctx.lineTo(-35, -15);
+  ctx.lineTo(-8, -10);
+  ctx.fill();
+
+  ctx.strokeStyle = "#ff536e";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(-13, 4);
+  ctx.lineTo(-43, 13 + Math.sin(frame * 0.18) * 8);
+  ctx.stroke();
+
+  // Body
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = skin.body;
+  ctx.fillStyle = skin.body;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 26, 21, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Wing
+  ctx.fillStyle = skin.wing;
+  ctx.beginPath();
+  ctx.ellipse(-8, 5 + Math.sin(frame * 0.35) * 5, 13, 9, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Eye
+  ctx.fillStyle = "white";
+  ctx.beginPath();
+  ctx.arc(12, -8, 7, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#101020";
+  ctx.beginPath();
+  ctx.arc(14, -8, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Beak
+  ctx.fillStyle = "#ffb72b";
+  ctx.beginPath();
+  ctx.moveTo(22, 0);
+  ctx.lineTo(39, 5);
+  ctx.lineTo(22, 10);
+  ctx.fill();
+
+  // SK emblem
+  ctx.fillStyle = "white";
+  ctx.font = "bold 11px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText("SK", -2, -3);
+
+  ctx.restore();
+}
+
+// ---------- OBSTACLES ----------
+
+const PIPE_GAP = 205;
+const PIPE_WIDTH = 88;
+
+function createObstacle() {
+  const gapY = 220 + Math.random() * 300;
+
+  obstacles.push({
+    x: W + 30,
+    gapY,
+    scored: false
+  });
+
+  if (Math.random() > 0.2) {
+    collectibles.push({
+      x: W + 30 + PIPE_WIDTH / 2,
+      y: gapY,
+      type: Math.random() > 0.16 ? "coin" : "gem",
+      collected: false,
+      rotation: 0
+    });
+  }
+}
+
+function drawObstaclePart(x, y, width, height, isTop) {
+  if (height <= 0) return;
+
+  const gradient = ctx.createLinearGradient(x, 0, x + width, 0);
+  gradient.addColorStop(0, "#101522");
+  gradient.addColorStop(0.5, "#394056");
+  gradient.addColorStop(1, "#101522");
+
+  ctx.fillStyle = gradient;
+  ctx.fillRect(x, y, width, height);
+
+  // Metal panels
+  ctx.fillStyle = "#222a3e";
+  ctx.fillRect(x + 9, y, 10, height);
+  ctx.fillRect(x + width - 19, y, 10, height);
+
+  // Purple neon
+  ctx.shadowBlur = 15;
+  ctx.shadowColor = "#8d36ff";
+  ctx.fillStyle = "#a34cff";
+  ctx.fillRect(x + 25, y, 5, height);
+  ctx.shadowBlur = 0;
+
+  // Cyan neon
+  ctx.shadowBlur = 15;
+  ctx.shadowColor = "#24dfff";
+  ctx.fillStyle = "#24dfff";
+  ctx.fillRect(x + 65, y, 4, height);
+  ctx.shadowBlur = 0;
+
+  // Segments
+  ctx.fillStyle = "#505b73";
+
+  for (let sy = y + 35; sy < y + height; sy += 75) {
+    ctx.fillRect(x - 6, sy, width + 12, 7);
+  }
+
+  // Edge near opening
+  const edgeY = isTop ? y + height - 17 : y;
+
+  ctx.fillStyle = "#11182b";
+  ctx.fillRect(x - 9, edgeY, width + 18, 20);
+
+  ctx.fillStyle = "#24dfff";
+  ctx.fillRect(x - 9, isTop ? edgeY + 16 : edgeY, width + 18, 4);
+}
+
+function drawObstacles() {
+  obstacles.forEach(o => {
+    const topHeight = o.gapY - PIPE_GAP / 2;
+    const bottomY = o.gapY + PIPE_GAP / 2;
+    const bottomHeight = H - 20 - bottomY;
+
+    drawObstaclePart(o.x, 0, PIPE_WIDTH, topHeight, true);
+    drawObstaclePart(o.x, bottomY, PIPE_WIDTH, bottomHeight, false);
+  });
+}
+
+// ---------- COINS AND GEMS ----------
+
+function drawCollectibles() {
+  collectibles.forEach(item => {
+    if (item.collected) return;
+
+    item.rotation += 0.08;
+
+    ctx.save();
+    ctx.translate(item.x, item.y);
+    ctx.scale(Math.max(0.15, Math.abs(Math.cos(item.rotation))), 1);
+
+    if (item.type === "coin") {
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = "#ffd83d";
+      ctx.fillStyle = "#ffcf35";
+      ctx.beginPath();
+      ctx.arc(0, 0, 13, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "#fff1a0";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      ctx.fillStyle = "#a76a00";
+      ctx.font = "bold 15px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("$", 0, 5);
+    } else {
+      ctx.shadowBlur = 18;
+      ctx.shadowColor = "#28dfff";
+      ctx.fillStyle = "#35eaff";
+      ctx.beginPath();
+      ctx.moveTo(0, -17);
+      ctx.lineTo(13, -3);
+      ctx.lineTo(0, 17);
+      ctx.lineTo(-13, -3);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = "#d8ffff";
+      ctx.lineWidth = 2;
+      ctx.stroke();
     }
 
-    // Margine groasă lângă deschidere
-    const edgeY = isTop
-      ? y + halfGap
-      : y - halfGap;
+    ctx.restore();
+    ctx.shadowBlur = 0;
+  });
+}
 
-    const edge = new THREE.Mesh(
-      new THREE.BoxGeometry(1.55, 0.3, 1.55),
-      darkMetal
-    );
+function collect(item) {
+  if (item.collected) return;
 
-    edge.position.set(0, edgeY, 0);
-    group.add(edge);
+  item.collected = true;
 
-    const lightStrip = new THREE.Mesh(
-      new THREE.BoxGeometry(1.57, 0.07, 1.58),
-      neonBlue
-    );
-
-    lightStrip.position.set(
-      0,
-      edgeY + (isTop ? -0.13 : 0.13),
-      0
-    );
-
-    group.add(lightStrip);
+  if (item.type === "coin") {
+    coins++;
+    missionProgress++;
+    playTone(800, 0.12, 0.06);
+  } else {
+    gems++;
+    playTone(1100, 0.22, 0.07);
   }
 
-  addStructure(true, topH);
-  addStructure(false, bottomH);
+  if (missionProgress >= 20 && !missionClaimed) {
+    coins += 150;
+    missionClaimed = true;
+    $("missionNotice").textContent = "🏆 Misiune completată! +150 monede!";
+    playTone(900, 0.5, 0.1);
+  }
 
-  group.position.set(7.5, 0, 0);
-
-  scene.add(group);
-
-  return {
-    group,
-    gapY: y,
-    scored: false
-  };
-};
-
-// CLASAMENT LOCAL - TOP 10
-
-let leaderboard = [];
-
-try {
-  leaderboard = JSON.parse(
-    localStorage.getItem("skapaden_leaderboard") || "[]"
-  );
-} catch(e) {
-  leaderboard = [];
+  createParticles(item.x, item.y, item.type === "coin" ? "#ffda42" : "#35eaff");
+  save();
+  hud();
 }
 
-function saveLeaderboard() {
-  localStorage.setItem(
-    "skapaden_leaderboard",
-    JSON.stringify(leaderboard)
-  );
+// ---------- PARTICLES ----------
+
+function createParticles(x, y, color) {
+  for (let i = 0; i < 12; i++) {
+    particles.push({
+      x,
+      y,
+      vx: (Math.random() - 0.5) * 7,
+      vy: (Math.random() - 0.5) * 7,
+      life: 25,
+      color
+    });
+  }
 }
+
+function drawParticles() {
+  particles.forEach(p => {
+    ctx.globalAlpha = Math.max(0, p.life / 25);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.globalAlpha = 1;
+}
+
+// ---------- COLLISIONS ----------
+
+function hitObstacle() {
+  const left = bird.x - bird.radius;
+  const right = bird.x + bird.radius;
+  const top = bird.y - bird.radius;
+  const bottom = bird.y + bird.radius;
+
+  for (const o of obstacles) {
+    const overlapsX = right > o.x && left < o.x + PIPE_WIDTH;
+
+    if (!overlapsX) continue;
+
+    const gapTop = o.gapY - PIPE_GAP / 2;
+    const gapBottom = o.gapY + PIPE_GAP / 2;
+
+    if (top < gapTop || bottom > gapBottom) return true;
+  }
+
+  return top < 0 || bottom > H - 20;
+}
+
+function collectCollision() {
+  collectibles.forEach(item => {
+    if (item.collected) return;
+
+    const dx = bird.x - item.x;
+    const dy = bird.y - item.y;
+
+    if (Math.sqrt(dx * dx + dy * dy) < 33) {
+      collect(item);
+    }
+  });
+}
+
+// ---------- LEADERBOARD ----------
 
 function addLeaderboardScore(value) {
   if (value <= 0) return;
@@ -324,217 +603,200 @@ function addLeaderboardScore(value) {
   leaderboard.sort((a, b) => b.score - a.score);
   leaderboard = leaderboard.slice(0, 10);
 
-  saveLeaderboard();
+  save();
 }
 
 function showLeaderboard() {
-  const list = leaderboard.length
-    ? leaderboard.map((entry, index) =>
-        `<div style="
-          display:flex;
-          justify-content:space-between;
-          padding:9px;
-          margin:5px 0;
-          background:#25233c;
-          border-radius:9px;
-        ">
-          <span>${index + 1}. ${entry.date}</span>
-          <b>${entry.score} puncte</b>
-        </div>`
-      ).join("")
-    : "<p>Joacă o rundă ca să apari în clasament!</p>";
-
   const modal = document.createElement("div");
 
   modal.style.cssText = `
-    position:fixed;
-    inset:0;
-    z-index:10002;
-    background:#08051bea;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    padding:20px;
+    position:fixed;inset:0;z-index:10010;
+    background:#08051bea;display:flex;
+    align-items:center;justify-content:center;padding:20px;
   `;
 
+  const entries = leaderboard.length
+    ? leaderboard.map((entry, i) => `
+      <div style="display:flex;justify-content:space-between;
+        padding:10px;margin:5px 0;background:#25233c;border-radius:9px">
+        <span>${i + 1}. ${entry.date}</span>
+        <b>${entry.score} puncte</b>
+      </div>
+    `).join("")
+    : "<p>Joacă o rundă ca să apari în clasament!</p>";
+
   modal.innerHTML = `
-    <div style="
-      width:100%;
-      max-width:360px;
-      max-height:80vh;
-      overflow:auto;
-      background:#17152d;
-      color:white;
-      padding:22px;
-      border-radius:20px;
-      font-family:Arial;
-    ">
-      <h2 style="text-align:center;color:#ffd94a">
-        🏆 CLASAMENT SKAPADEN
-      </h2>
-      ${list}
-      <button id="closeLeaderboard" style="
-        width:100%;
-        padding:13px;
-        margin-top:12px;
-        border:0;
-        border-radius:10px;
-        background:#8138ed;
-        color:white;
-        font-weight:bold;
-      ">ÎNCHIDE</button>
+    <div style="width:100%;max-width:360px;max-height:80vh;
+      overflow:auto;background:#17152d;color:white;padding:22px;
+      border-radius:20px;font-family:Arial">
+      <h2 style="text-align:center;color:#ffd94a">🏆 TOP 10 SKAPADEN</h2>
+      ${entries}
+      <button id="closeLeaderboard" style="width:100%;padding:13px;
+        margin-top:12px;background:#8138ed;color:white">ÎNCHIDE</button>
     </div>
   `;
 
   document.body.appendChild(modal);
-
-  modal.querySelector("#closeLeaderboard")
-    .addEventListener("click", () => modal.remove());
+  modal.querySelector("#closeLeaderboard").onclick = () => modal.remove();
 }
 
-// ECRAN GAME OVER
+// ---------- SHOP ----------
+
+function renderShop() {
+  const list = $("skinList");
+  list.innerHTML = "";
+
+  SKINS.forEach(skin => {
+    const owned = ownedSkins.includes(skin.id);
+    const selected = selectedSkin === skin.id;
+
+    const card = document.createElement("div");
+    card.className = "skin-card";
+
+    card.style.setProperty("--body", skin.body);
+    card.style.setProperty("--light", skin.light);
+    card.style.setProperty("--dark", skin.dark);
+    card.style.setProperty("--wing", skin.wing);
+
+    const preview = document.createElement("div");
+    preview.className = "skin-preview";
+    preview.textContent = skin.icon;
+    preview.style.fontSize = "36px";
+    preview.style.display = "flex";
+    preview.style.alignItems = "center";
+    preview.style.justifyContent = "center";
+
+    const info = document.createElement("div");
+    info.className = "skin-info";
+
+    const price = skin.coin
+      ? `🪙 ${skin.coin}`
+      : skin.gem
+        ? `💎 ${skin.gem}`
+        : "GRATUIT";
+
+    info.innerHTML = `<b>${skin.name}</b><small>${price}</small>`;
+
+    const action = document.createElement("button");
+    action.className = "skin-action" + (selected ? " selected" : "");
+
+    action.textContent = selected
+      ? "ECHIPAT"
+      : owned
+        ? "ECHIPEAZĂ"
+        : "DEBLOCHEAZĂ";
+
+    action.onclick = () => {
+      if (owned) {
+        selectedSkin = skin.id;
+        save();
+        renderShop();
+        return;
+      }
+
+      if (skin.coin && coins >= skin.coin) {
+        coins -= skin.coin;
+      } else if (skin.gem && gems >= skin.gem) {
+        gems -= skin.gem;
+      } else {
+        $("shopNotice").textContent = "Nu ai suficiente monede sau diamante!";
+        return;
+      }
+
+      ownedSkins.push(skin.id);
+      selectedSkin = skin.id;
+      $("shopNotice").textContent = "Costum deblocat!";
+      save();
+      hud();
+      renderShop();
+    };
+
+    card.append(preview, info, action);
+    list.appendChild(card);
+  });
+}
+
+$("shop").onclick = () => {
+  $("shopModal").classList.add("open");
+  renderShop();
+};
+
+$("closeShop").onclick = () => {
+  $("shopModal").classList.remove("open");
+};
+
+// ---------- DAILY REWARD ----------
+
+$("dailyButton").onclick = () => {
+  const today = new Date().toLocaleDateString("en-CA");
+
+  if (lastDaily === today) {
+    $("dailyNotice").textContent = "Ai primit deja recompensa de azi!";
+    return;
+  }
+
+  coins += 100;
+  lastDaily = today;
+
+  $("dailyNotice").textContent = "🎁 Ai primit 100 de monede!";
+  playTone(850, 0.3, 0.07);
+  save();
+  hud();
+};
+
+// ---------- GAME OVER SCREEN ----------
 
 const gameOverScreen = document.createElement("div");
 
-gameOverScreen.id = "gameOverScreen";
-
 gameOverScreen.style.cssText = `
-  display:none;
-  position:fixed;
-  inset:0;
-  z-index:10000;
-  background:rgba(5,3,20,0.91);
-  align-items:center;
-  justify-content:center;
-  padding:20px;
-  font-family:Arial,sans-serif;
+  display:none;position:fixed;inset:0;z-index:10000;
+  background:rgba(5,3,20,.94);align-items:center;
+  justify-content:center;padding:18px;font-family:Arial;
 `;
 
 gameOverScreen.innerHTML = `
-  <div style="
-    width:100%;
-    max-width:340px;
-    padding:25px;
-    border-radius:22px;
-    text-align:center;
-    color:white;
+  <div style="width:100%;max-width:340px;padding:24px;
+    border-radius:22px;text-align:center;color:white;
     background:linear-gradient(160deg,#29104e,#10152b);
-    border:2px solid #8c48ff;
-    box-shadow:0 0 30px #7c32ff66;
-  ">
-    <h1 style="color:#ff536d;margin:0 0 8px">
-      GAME OVER
-    </h1>
+    border:2px solid #8c48ff;box-shadow:0 0 30px #7c32ff66">
 
+    <h1 style="color:#ff536d;margin:0 0 8px">GAME OVER</h1>
     <p style="color:#b9b8d4">SCORUL TĂU</p>
 
-    <div id="finalScore" style="
-      font-size:54px;
-      font-weight:900;
-      color:#ffe36a;
-    ">0</div>
+    <div id="finalScore" style="font-size:54px;font-weight:900;color:#ffe36a">0</div>
 
-    <div style="
-      display:flex;
-      justify-content:space-around;
-      margin:18px 0;
-    ">
+    <div style="display:flex;justify-content:space-around;margin:18px 0">
       <div>🏆 RECORD<br><b id="finalBest">0</b></div>
       <div>🪙 MONEDE<br><b id="finalCoins">0</b></div>
     </div>
 
-    <button id="playAgainButton" style="
-      width:100%;
-      padding:14px;
-      margin:6px 0;
-      border:0;
-      border-radius:12px;
-      background:#8d36ff;
-      color:white;
-      font-weight:bold;
-      font-size:17px;
-    ">🔄 JOACĂ DIN NOU</button>
+    <button id="playAgainButton" style="width:100%;padding:14px;
+      margin:6px 0;background:#8d36ff">🔄 JOACĂ DIN NOU</button>
 
-    <button id="leaderboardButton" style="
-      width:100%;
-      padding:13px;
-      margin:6px 0;
-      border:1px solid #ffe36a;
-      border-radius:12px;
-      background:#25233c;
-      color:white;
-      font-weight:bold;
-    ">🏆 CLASAMENT</button>
+    <button id="leaderboardButton" style="width:100%;padding:13px;
+      margin:6px 0;background:#25233c;border:1px solid #ffe36a">
+      🏆 CLASAMENT
+    </button>
 
-    <button id="gameOverShopButton" style="
-      width:100%;
-      padding:13px;
-      margin:6px 0;
-      border:1px solid #35dfff;
-      border-radius:12px;
-      background:#25233c;
-      color:white;
-      font-weight:bold;
-    ">👕 MAGAZIN COSTUME</button>
+    <button id="gameOverShopButton" style="width:100%;padding:13px;
+      margin:6px 0;background:#25233c;border:1px solid #35dfff">
+      👕 MAGAZIN COSTUME
+    </button>
   </div>
 `;
 
 document.body.appendChild(gameOverScreen);
 
-// PICTOGRAME PENTRU COSTUME
-
-const skinIcons = {
-  red: "🦸",
-  gold: "👑",
-  blue: "🌊",
-  green: "🍀",
-  purple: "🔮",
-  flame: "🔥",
-  ice: "❄️",
-  pink: "💗",
-  shadow: "🌑",
-  neon: "⚡"
-};
-
-const oldRenderShop = renderShop;
-
-renderShop = function() {
-  oldRenderShop();
-
-  const cards = $("skinList").children;
-
-  Array.from(cards).forEach((card, index) => {
-    const skin = SKINS[index];
-    if (!skin) return;
-
-    const preview = card.querySelector(".skin-preview");
-
-    if (preview) {
-      preview.textContent = skinIcons[skin.id] || "🐦";
-      preview.style.fontSize = "36px";
-      preview.style.display = "flex";
-      preview.style.alignItems = "center";
-      preview.style.justifyContent = "center";
-    }
-  });
-};
-
-// GAME OVER CU SCOR ȘI EXPLOZIE
-
-gameOver = function() {
+function gameOver() {
   if (state !== "playing") return;
 
   state = "over";
-
   stopMusic();
   explosionSound();
 
-  if (score > best) {
-    best = score;
-  }
+  if (score > best) best = score;
 
   addLeaderboardScore(score);
-
   save();
   hud();
 
@@ -543,56 +805,211 @@ gameOver = function() {
   $("finalCoins").textContent = coins;
 
   gameOverScreen.style.display = "flex";
-
   $("message").textContent = "GAME OVER!";
-};
+}
 
-// BUTOANELE ECRANULUI GAME OVER
-
-$("playAgainButton").addEventListener("click", () => {
+$("playAgainButton").onclick = () => {
   gameOverScreen.style.display = "none";
   startGame();
-});
+};
 
-$("leaderboardButton").addEventListener("click", showLeaderboard);
+$("leaderboardButton").onclick = showLeaderboard;
 
-$("gameOverShopButton").addEventListener("click", () => {
+$("gameOverShopButton").onclick = () => {
   gameOverScreen.style.display = "none";
   $("shopModal").classList.add("open");
   renderShop();
-});
-
-const originalCloseShop = $("closeShop").onclick;
+};
 
 $("closeShop").addEventListener("click", () => {
-  if (state === "over") {
-    gameOverScreen.style.display = "flex";
+  if (state === "over") gameOverScreen.style.display = "flex";
+});
+
+// ---------- START / RESET / PAUSE ----------
+
+function resetGame() {
+  score = 0;
+  speed = 3.5;
+  obstacles = [];
+  collectibles = [];
+  particles = [];
+
+  bird.x = 160;
+  bird.y = H / 2;
+  bird.velocity = 0;
+  bird.rotation = 0;
+
+  frame = 0;
+}
+
+function startGame() {
+  resetGame();
+  state = "playing";
+  $("message").textContent = "Atinge ecranul pentru a zbura!";
+  audioReady();
+  startMusic();
+}
+
+function flap() {
+  if (state !== "playing") return;
+
+  bird.velocity = -6.5;
+  playTone(420, 0.08, 0.025);
+}
+
+$("start").onclick = () => {
+  if (state !== "playing") startGame();
+  else flap();
+};
+
+$("retry").onclick = () => {
+  gameOverScreen.style.display = "none";
+  startGame();
+};
+
+$("pause").onclick = () => {
+  if (state === "playing") {
+    state = "paused";
+    stopMusic();
+    $("message").textContent = "⏸ JOCUL ESTE ÎN PAUZĂ";
+  } else if (state === "paused") {
+    state = "playing";
+    $("message").textContent = "Atinge ecranul pentru a zbura!";
+    startMusic();
+  }
+};
+
+canvas.addEventListener("pointerdown", event => {
+  event.preventDefault();
+
+  if (state === "menu") {
+    startGame();
+    flap();
+  } else if (state === "playing") {
+    flap();
   }
 });
 
-// Buton clasament și în meniu
+// ---------- UPDATE GAME ----------
 
-const leaderboardMenuButton = document.createElement("button");
+function update(dt) {
+  if (state !== "playing") return;
 
-leaderboardMenuButton.textContent = "🏆 CLASAMENT";
-leaderboardMenuButton.style.cssText = `
-  padding:10px 14px;
-  margin:5px;
-  border-radius:10px;
-  background:#25233c;
-  color:white;
-  border:1px solid #8d36ff;
-  font-weight:bold;
-`;
+  frame += dt;
 
-leaderboardMenuButton.addEventListener("click", showLeaderboard);
+  bird.velocity += 0.32 * dt;
+  bird.y += bird.velocity * dt;
+  bird.rotation = Math.min(0.8, Math.max(-0.5, bird.velocity * 0.08));
 
-if ($("shop") && $("shop").parentElement) {
-  $("shop").insertAdjacentElement(
-    "afterend",
-    leaderboardMenuButton
-  );
+  if (frame % 100 < dt) createObstacle();
+
+  speed = Math.min(6, 3.5 + score * 0.045);
+
+  obstacles.forEach(o => {
+    o.x -= speed * dt;
+
+    if (!o.scored && o.x + PIPE_WIDTH < bird.x) {
+      o.scored = true;
+      score++;
+      playTone(600, 0.1, 0.025);
+    }
+  });
+
+  obstacles = obstacles.filter(o => o.x > -PIPE_WIDTH - 30);
+
+  collectibles.forEach(item => {
+    item.x -= speed * dt;
+  });
+
+  collectibles = collectibles.filter(item => item.x > -30 && !item.collected);
+
+  collectCollision();
+
+  particles.forEach(p => {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life -= dt;
+  });
+
+  particles = particles.filter(p => p.life > 0);
+
+  if (hitObstacle()) gameOver();
 }
 
-// SALVARE MUZICĂ ȘI EFECTE
-save();
+// ---------- DRAW GAME ----------
+
+function drawHUD() {
+  ctx.fillStyle = "rgba(8,5,30,.72)";
+  ctx.fillRect(15, 15, 180, 65);
+
+  ctx.fillStyle = "#ffe36a";
+  ctx.font = "bold 27px Arial";
+  ctx.textAlign = "left";
+  ctx.fillText("SCOR: " + score, 28, 55);
+}
+
+function drawMenu() {
+  ctx.fillStyle = "rgba(8,5,30,.68)";
+  ctx.fillRect(40, 245, 520, 220);
+
+  ctx.textAlign = "center";
+  ctx.shadowBlur = 22;
+  ctx.shadowColor = "#8c48ff";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 56px Arial";
+  ctx.fillText("SKAPADEN", W / 2, 315);
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = "#24dfff";
+  ctx.font = "bold 20px Arial";
+  ctx.fillText("SUPERHERO FLIGHT", W / 2, 355);
+
+  ctx.fillStyle = "#ffe36a";
+  ctx.font = "bold 23px Arial";
+  ctx.fillText("APASĂ START", W / 2, 420);
+}
+
+function drawPaused() {
+  ctx.fillStyle = "rgba(5,3,20,.75)";
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = "white";
+  ctx.textAlign = "center";
+  ctx.font = "bold 48px Arial";
+  ctx.fillText("PAUZĂ", W / 2, H / 2);
+}
+
+function render() {
+  drawBackground();
+  drawObstacles();
+  drawCollectibles();
+  drawParticles();
+  drawBird();
+  drawHUD();
+
+  if (state === "menu") drawMenu();
+  if (state === "paused") drawPaused();
+}
+
+// ---------- MAIN LOOP ----------
+
+function loop(time = 0) {
+  const dt = Math.min((time - lastTime) / 16.67 || 1, 2);
+  lastTime = time;
+
+  update(dt);
+  render();
+
+  requestAnimationFrame(loop);
+}
+
+// ---------- INITIALIZE ----------
+
+hud();
+renderShop();
+updateAudioButtons();
+
+$("message").textContent =
+  "Atinge START, apoi atinge ecranul ca pasărea să zboare!";
+
+requestAnimationFrame(loop);
